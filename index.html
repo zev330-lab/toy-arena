@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Toy Arena">
+  <meta name="application-name" content="Toy Arena">
+  <meta name="theme-color" content="#170c55">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="Snap your action figures, turn them into 3D toys and battle in the arena!">
+  <title>Toy Arena</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js" crossorigin>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body class="bg-comic">
+  <div id="app">
+    <div class="screen center-col" id="boot">
+      <div class="big-emoji" style="animation: pulse 1s infinite">🥊</div>
+      <p class="subtitle">TOY ARENA</p>
+    </div>
+  </div>
+  <div id="overlay"></div>
+  <noscript><p style="color:#fff;text-align:center;padding:40px;font:20px sans-serif">Toy Arena needs JavaScript turned on.</p></noscript>
+</body>
+</html>
