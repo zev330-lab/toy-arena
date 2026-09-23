@@ -6,6 +6,9 @@ let music = null;
 
 function ensure() {
   if (ctx) return ctx;
+  // Automated test browsers (navigator.webdriver) and ?mute=1 never make sound: headless WebKit
+  // plays through the host Mac's speakers and has no mute switch.
+  if (navigator.webdriver || new URLSearchParams(location.search).has('mute')) return null;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   ctx = new AC();
@@ -56,8 +59,9 @@ function env(g, t, a, peak, dcy, end = 0.0001) {
   g.gain.exponentialRampToValueAtTime(peak, t + a);
   g.gain.exponentialRampToValueAtTime(end, t + a + dcy);
 }
-function tone({ type = 'sine', f0 = 440, f1 = null, t = 0, dur = 0.2, vol = 0.3, attack = 0.005, bus = sfxBus, curve = 'exp', detune = 0 }) {
+function tone({ type = 'sine', f0 = 440, f1 = null, t = 0, dur = 0.2, vol = 0.3, attack = 0.005, bus = null, curve = 'exp', detune = 0 }) {
   const c = ensure(); if (!c) return;
+  bus = bus || sfxBus; // default resolved after ensure(): the bus doesn't exist before the first sound
   const now = c.currentTime + t;
   const o = c.createOscillator(); const g = c.createGain();
   o.type = type; o.detune.value = detune;
@@ -70,8 +74,9 @@ function tone({ type = 'sine', f0 = 440, f1 = null, t = 0, dur = 0.2, vol = 0.3,
   o.connect(g).connect(bus);
   o.start(now); o.stop(now + attack + dur + 0.05);
 }
-function noise({ t = 0, dur = 0.2, vol = 0.3, type = 'lowpass', f0 = 1200, f1 = null, q = 1, attack = 0.003, bus = sfxBus }) {
+function noise({ t = 0, dur = 0.2, vol = 0.3, type = 'lowpass', f0 = 1200, f1 = null, q = 1, attack = 0.003, bus = null }) {
   const c = ensure(); if (!c) return;
+  bus = bus || sfxBus;
   const now = c.currentTime + t;
   const s = c.createBufferSource(); s.buffer = noiseBuf;
   s.playbackRate.value = 0.8 + Math.random() * 0.4;

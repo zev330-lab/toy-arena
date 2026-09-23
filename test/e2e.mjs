@@ -27,8 +27,9 @@ const facts = {};
 
 const browser = ENGINE === 'webkit'
   ? await webkit.launch()
-  : await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  : await chromium.launch({ args: ['--mute-audio', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
 console.log(`engine: ${ENGINE} ${browser.version()}`);
+browser.on('disconnected', () => console.log('   !!! browser disconnected'));
 const phone = { ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
 
 function watch(page, label) {
@@ -38,6 +39,7 @@ function watch(page, label) {
     else if (m.type() === 'warning') warnings.push(`[${label}] ${t.slice(0, 160)}`);
   });
   page.on('pageerror', (e) => errors.push(`[${label}] pageerror: ${e.message}`));
+  page.on('crash', () => { errors.push(`[${label}] PAGE CRASHED`); console.log('   !!! page crashed'); });
   page.on('requestfailed', (r) => { if (!r.url().includes('favicon')) warnings.push(`[${label}] request failed ${r.url()} ${r.failure()?.errorText}`); });
 }
 
@@ -167,7 +169,11 @@ async function addToyFlow(page, { photo, back = null, name, power, prefix, truth
 }
 
 // ======================================================================
+
+// Tests are always silent: no AudioContext exists in the test page (headless WebKit plays through the Mac's speakers).
+const SILENCE = () => { delete window.AudioContext; delete window.webkitAudioContext; window.AudioContext = undefined; window.webkitAudioContext = undefined; };
 const ctx = await browser.newContext({ ...phone, acceptDownloads: true });
+await ctx.addInitScript(SILENCE);
 const page = await ctx.newPage();
 watch(page, 'main');
 await page.goto(`${BASE}?nosw`);
@@ -486,6 +492,7 @@ await ctx.close();
 // ---------- service worker + offline ----------
 await step('13 service worker registers, app + smart cutout work offline', async () => {
   const c2 = await browser.newContext({ ...phone });
+  await c2.addInitScript(SILENCE);
   const p2 = await c2.newPage();
   watch(p2, 'sw');
   await p2.goto(BASE);

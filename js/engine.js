@@ -77,6 +77,7 @@ export function stopLoop() { cancelAnimationFrame(raf); raf = 0; }
 
 export function disposeScene(scene) {
   scene.traverse((o) => {
+    if (o.isLight && o.shadow) o.shadow.dispose(); // shadow-map render targets are GPU textures too
     if (o.isMesh || o.isPoints || o.isLine || o.isSprite) {
       o.geometry?.dispose();
       const mats = Array.isArray(o.material) ? o.material : [o.material];
