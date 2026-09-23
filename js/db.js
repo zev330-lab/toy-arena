@@ -23,7 +23,16 @@ function open() {
   return dbp;
 }
 
-async function tx(mode, fn) {
+async function tx(mode, fn, retry = true) {
+  try { return await txOnce(mode, fn); } catch (e) {
+    // iOS can drop the IndexedDB connection while the app is in the background: reopen once.
+    if (!retry || !['UnknownError', 'InvalidStateError', 'AbortError'].includes(e?.name)) throw e;
+    try { (await dbp)?.close(); } catch { /* ignore */ }
+    dbp = null;
+    return tx(mode, fn, false);
+  }
+}
+async function txOnce(mode, fn) {
   const db = await open();
   return new Promise((resolve, reject) => {
     const t = db.transaction('toys', mode);

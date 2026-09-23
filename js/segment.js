@@ -77,7 +77,7 @@ function runModel(seg, image, roi, ww, wh) {
  * Automatic cutout. Returns a "cut session" object that the tap-to-fix UI keeps using:
  * { work (canvas), w, h, mask, method: 'ai'|'simple', score }
  */
-export async function autoCutout(photo, { onStatus = () => {}, modelTimeout = 30000 } = {}) {
+export async function autoCutout(photo, { onStatus = () => {}, modelTimeout = 15000 } = {}) {
   const work = scaledCanvas(photo, WORK_SIDE);
   const w = work.width, h = work.height;
   const session = { photo, work, w, h, mask: null, method: 'simple', score: 0, fallbackRaw: null };

@@ -118,8 +118,17 @@ export async function exportBackup() {
     const stamp = new Date().toISOString().slice(0, 10);
     const file = new File([json], `toy-arena-backup-${stamp}.json`, { type: 'application/json' });
     b.close();
-    if (navigator.canShare?.({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
-      try { await navigator.share({ files: [file], title: 'Toy Arena backup' }); toast('💾 Backup saved!'); return; } catch (e) { if (e.name === 'AbortError') return; }
+    const canShare = navigator.canShare?.({ files: [file] }) && matchMedia('(pointer: coarse)').matches;
+    if (canShare) {
+      // Packing took a while, so the original tap no longer counts as a user gesture on iOS:
+      // ask for a fresh tap before opening the share sheet (→ “Save to Files”).
+      const ok = await modal({ emoji: '📦', title: 'Backup ready!', text: `${toys.length} toy${toys.length === 1 ? '' : 's'} packed.`,
+        actions: [{ emoji: '❌', label: 'Cancel', cls: 'white', value: false }, { emoji: '📤', label: 'Share', cls: 'blue', value: true }] });
+      if (!ok) return;
+      try { await navigator.share({ files: [file], title: 'Toy Arena backup' }); toast('💾 Backup saved!'); return; } catch (e) {
+        if (e.name === 'AbortError') return;
+        console.info('[toy-arena] share failed, downloading instead:', e.message);
+      }
     }
     const a = h('a', { href: URL.createObjectURL(file), download: file.name });
     document.body.append(a); a.click(); a.remove();

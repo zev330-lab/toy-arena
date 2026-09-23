@@ -1,7 +1,7 @@
 // "Add a Toy" wizard: photo → magic cutout → (fix) → back photo? → name → power → 3D reveal.
 // Also used for "Retake photo" on an existing toy (params.retakeId).
 
-import { h, btn, topbar, busy, toast, modal, sleep } from '../ui.js';
+import { h, btn, topbar, busy, toast, modal, sleep, confetti } from '../ui.js';
 import { go, back as navBack, possessive, ownerName } from '../app.js';
 import * as db from '../db.js';
 import { pickPhoto, fileToCanvas, canvasToBlob } from '../capture.js';
@@ -263,6 +263,7 @@ export async function addScreen(el, params = {}) {
 
   // ---------- 6. power ----------
   function powerStep() {
+    draft.power = null;
     const grid = h('div', { class: 'power-grid' });
     for (const p of POWERS) {
       const b = btn({ emoji: p.emoji, label: p.short || p.label, cls: 'white', aria: p.label });
@@ -270,6 +271,7 @@ export async function addScreen(el, params = {}) {
       if (p.id === 'ninja' || p.id === 'shield' || p.id === 'magic') b.style.setProperty('--fg', '#fff');
       b.dataset.power = p.id;
       b.addEventListener('click', async () => {
+        if (draft.power) return; // one pick only — a second tap must not save the toy twice
         grid.querySelectorAll('.btn').forEach(x => x.classList.remove('on'));
         b.classList.add('on');
         draft.power = p.id;
@@ -347,10 +349,11 @@ export async function addScreen(el, params = {}) {
       ),
     );
     const tt = new Turntable(view, toy, { intro: true });
-    await tt.ready;
-    sfx.fanfare();
-    const { confetti } = await import('../ui.js');
-    confetti(el, 60);
+    tt.ready.then(() => {
+      if (!alive || tt.disposed) return;
+      sfx.fanfare();
+      confetti(el, 60);
+    }).catch((e) => console.warn('[toy-arena] reveal', e));
     return () => tt.dispose();
   }
 

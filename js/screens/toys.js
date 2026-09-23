@@ -26,10 +26,12 @@ export class Turntable {
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; s.add(floor);
     this.fx = new FX(s, { max: 60 });
     const canvas = mount(container);
+    this.listen = new AbortController(); // shared canvas: remove our drag handlers on dispose
     this.offResize = onResize((w, hh) => { this.camera.aspect = w / hh; this.camera.updateProjectionMatrix(); this.frameCam(); });
     this.bindDrag(canvas);
     this.t = 0;
     this.ready = buildFigure(toy, { maxAniso: maxAniso() }).then((built) => {
+      if (this.disposed) { built.dispose(); return; } // screen left while loading
       this.fig = new Figure(built, toy);
       this.fig.idleAmp = 1.2;
       s.add(this.fig.root);
@@ -50,7 +52,8 @@ export class Turntable {
   }
   bindDrag(canvas) {
     let lastX = 0, lastT = 0;
-    canvas.addEventListener('pointerdown', (e) => { this.dragging = true; lastX = e.clientX; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); });
+    const opt = { signal: this.listen.signal };
+    canvas.addEventListener('pointerdown', (e) => { this.dragging = true; lastX = e.clientX; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); }, opt);
     canvas.addEventListener('pointermove', (e) => {
       if (!this.dragging) return;
       const now = performance.now();
@@ -58,10 +61,10 @@ export class Turntable {
       this.angle += dx * 0.012;
       this.vel = (dx * 0.012) / Math.max(0.008, (now - lastT) / 1000);
       lastX = e.clientX; lastT = now;
-    });
+    }, opt);
     const up = () => { this.dragging = false; };
-    canvas.addEventListener('pointerup', up);
-    canvas.addEventListener('pointercancel', up);
+    canvas.addEventListener('pointerup', up, opt);
+    canvas.addEventListener('pointercancel', up, opt);
   }
   frame(dt) {
     this.t += dt;
@@ -75,6 +78,8 @@ export class Turntable {
     getRenderer().render(this.scene, this.camera);
   }
   dispose() {
+    this.disposed = true;
+    this.listen.abort();
     unmount();
     this.offResize?.();
     this.fig?.dispose();
@@ -181,7 +186,8 @@ export async function toyScreen(el, { id }) {
   );
   if (toy.builtin) el.querySelector('.actions').style.gridTemplateColumns = 'repeat(3, 1fr)';
   const tt = new Turntable(view, toy);
-  await tt.ready;
-  if (!toy.thumbBlob) { const { renderThumb } = await import('../engine.js'); toy.thumbBlob = await renderThumb(toy); await db.putToy(toy); }
+  tt.ready.then(async () => {
+    if (!toy.thumbBlob && !tt.disposed) { const { renderThumb } = await import('../engine.js'); toy.thumbBlob = await renderThumb(toy); await db.putToy(toy); }
+  }).catch((e) => console.warn('[toy-arena] turntable', e));
   return () => tt.dispose();
 }

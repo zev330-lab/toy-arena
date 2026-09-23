@@ -56,7 +56,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_CACHE);
     await cache.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })));
-    await self.skipWaiting();
+    // No skipWaiting(): a new version takes over on the next launch, so a running game never
+    // mixes old and new modules.
   })());
 });
 
@@ -92,18 +93,23 @@ async function cacheFirst(request) {
   return res;
 }
 
+// App files come from this version's cache only (cache-first), so one launch never mixes
+// files from two versions. Ship updates by bumping VERSION.
 async function shell(request) {
   const cache = await caches.open(SHELL_CACHE);
   const cached = await cache.match(request, { ignoreSearch: true });
-  const network = fetch(request).then((res) => {
+  if (cached) return cached;
+  try {
+    const res = await fetch(request);
     if (res.ok && res.type === 'basic') cache.put(request, res.clone()).catch(() => {});
     return res;
-  }).catch(() => null);
-  if (cached) { network.catch(() => {}); return cached; } // stale-while-revalidate
-  const res = await network;
-  if (res) return res;
-  if (request.mode === 'navigate') return (await cache.match('index.html')) || Response.error();
-  return Response.error();
+  } catch {
+    return Response.error();
+  }
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 }
 
 self.addEventListener('fetch', (event) => {
@@ -112,7 +118,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin === self.location.origin) {
     if (request.mode === 'navigate') {
-      event.respondWith(fetch(request).catch(async () => (await caches.open(SHELL_CACHE)).match('index.html')));
+      // network first (fresh index.html), but never leave a kid staring at a blank screen on bad Wi-Fi
+      event.respondWith(withTimeout(fetch(request), 3000).catch(async () => (await caches.open(SHELL_CACHE)).match('index.html')));
       return;
     }
     event.respondWith(shell(request));

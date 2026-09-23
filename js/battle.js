@@ -38,6 +38,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
 
   let alive = true;
   let fighting = false;
+  let paused = false;
   let clock = 0;
   let cpuNext = 1.2;
   const timers = new Set();
@@ -121,7 +122,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
 
   // ---------- actions ----------
   function doBlock(i) {
-    if (!fighting) return;
+    if (!fighting || paused) return;
     const f = F[i];
     if (!startBlock(f.st, clock)) return;
     f.fig.blockFor(BLOCK_TIME, 0x5fd3ff);
@@ -129,7 +130,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   }
 
   function doAttack(i, move) {
-    if (!fighting) return;
+    if (!fighting || paused) return;
     const me = F[i], them = F[1 - i];
     if (move === 'special' && !specialReady(me.st)) { me.ui.special?.animate([{ transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'none' }], { duration: 200 }); return; }
     if (!startAttack(me.st, move, clock)) return;
@@ -249,6 +250,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
       await banner(hud, `${w.toy.name.toUpperCase()} WINS THE ROUND!`, { ms: 1100, small: true });
       if (!alive) return;
       await l.fig.getUp();
+      if (!alive) return;
       l.fig.dizzyUntil = 0;
       startRound(match);
       updateHud();
@@ -277,8 +279,9 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     for (const f of F) {
       const upd = awardXp(f.toy, f.i === winnerIdx);
       leveled = leveled || (upd.leveledUp && f.i === winnerIdx);
-      await db.updateToy(f.toy.id, { xp: upd.xp, wins: upd.wins, losses: upd.losses });
+      try { await db.updateToy(f.toy.id, { xp: upd.xp, wins: upd.wins, losses: upd.losses }); } catch (e) { console.warn('[toy-arena] xp save', e); }
     }
+    if (!alive) return;
     const gain = h('div', { class: 'xpgain' }, leveled ? '🎉 LEVEL UP! ⭐⭐' : `⭐ +40 for ${w.toy.name}`);
     if (leveled) later(900, () => sfx.levelUp());
     hud.append(gain,
@@ -290,8 +293,8 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   }
 
   async function pause() {
-    const wasFighting = fighting;
-    fighting = false;
+    if (paused) return;
+    paused = true;
     const saved = arena.timeScale;
     arena.timeScale = 0;
     const v = await modal({ emoji: '⏸️', title: 'Paused', actions: [
@@ -299,12 +302,13 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
       { emoji: '▶️', label: 'Play', cls: 'green', value: 'play' }] });
     if (!alive) return;
     arena.timeScale = saved || 1;
-    if (v === 'quit') { navBack(); return; }
-    fighting = wasFighting;
+    paused = false;
+    if (v === 'quit') navBack();
   }
 
   // ---------- frame loop ----------
   arena.onFrame = (dt) => {
+    if (paused) return;
     if (fighting) clock += dt;
     if (fighting && !two && clock >= cpuNext) {
       const cpu = F[1], kid = F[0];

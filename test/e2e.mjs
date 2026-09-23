@@ -418,7 +418,12 @@ await step('11 settings: backup export → delete → restore round-trip', async
   await page.waitForTimeout(1300);
   await page.waitForSelector('.modal .settings-list');
   await shot(page, '16-settings');
-  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.getByRole('button', { name: 'Save' }).click({ force: true })]);
+  const dl = page.waitForEvent('download', { timeout: 30000 });
+  await page.getByRole('button', { name: 'Save' }).click({ force: true });
+  // on touch devices with Web Share, a second tap opens the share sheet (headless falls back to a download)
+  const shareBtn = page.locator('.modal:has-text("Backup ready") button:has-text("Share")');
+  if (await shareBtn.waitFor({ timeout: 4000 }).then(() => true).catch(() => false)) { await shot(page, '16b-backup-ready'); await shareBtn.click({ force: true }); }
+  const download = await dl;
   const file = path.join(OUT, 'backup.json');
   await download.saveAs(file);
   const json = JSON.parse(fs.readFileSync(file, 'utf8'));

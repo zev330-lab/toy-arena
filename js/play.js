@@ -73,6 +73,7 @@ export async function playScreen(el, { ids, stage }) {
         arena.fx.stars(p, 8); arena.fx.hitSparks(p, 0xffe066, true);
         powBubble(fxLayer, arena, p, 'HIGH FIVE!', { big: true });
       }
+      if (!alive) return;
       sfx.clap();
       cheerOthers();
       await sleep(600);
@@ -97,6 +98,7 @@ export async function playScreen(el, { ids, stage }) {
       };
       arena.onFrame = spin;
       await Promise.all(figs.map((f, i) => f.dance(beat, i % 4, 16)));
+      if (!alive) return;
       arena.onFrame = null;
       arena.lights.hemi.intensity /= 0.45;
       for (const o of [...lights, ball]) removeExtra(o);
@@ -119,6 +121,7 @@ export async function playScreen(el, { ids, stage }) {
       await Promise.all(figs.map((f, i) => f.hopTo(endX, lanes[i], { hopDur: 0.16 + Math.random() * 0.1, perHop: 0.45 + Math.random() * 0.2, height: 0.3, onLand: () => { if (Math.random() < 0.3) arena.fx.dust(f.root.position, 2); } })
         .then(() => { if (!winner) { winner = f; sfx.fanfare(); arena.fx.stars(f.headPos, 12); say(f, '1ST!', '#ffd23f'); f.victory(); } })));
       await sleep(1500);
+      if (!alive) return;
       removeExtra(line);
       await goHome();
     },
@@ -133,6 +136,7 @@ export async function playScreen(el, { ids, stage }) {
         if (!alive) return;
       }
       await sleep(250);
+      if (!alive) return;
       arena.fx.stars(best.headPos, 14); sfx.fanfare(); say(best, 'HIGHEST!', '#ffd23f');
       await best.victory();
     },
@@ -195,6 +199,7 @@ export async function playScreen(el, { ids, stage }) {
         });
         sfx.boing();
       }
+      if (!alive) return;
       arena.fx.stars(ball.position, 8);
       sfx.cheer();
       await sleep(500);
@@ -240,6 +245,8 @@ export async function playScreen(el, { ids, stage }) {
   // drag a toy: it hops after your finger
   let drag = null;
   const canvas = arena.canvas;
+  const listen = new AbortController(); // the canvas is shared across screens: drop our listeners on exit
+  const opt = { signal: listen.signal };
   const clampR = (p) => { const r = Math.hypot(p.x, p.z); if (r > 2.9) p.multiplyScalar(2.9 / r); return p; };
   canvas.addEventListener('pointerdown', (e) => {
     if (busy) return;
@@ -249,15 +256,15 @@ export async function playScreen(el, { ids, stage }) {
     canvas.setPointerCapture?.(e.pointerId);
     sfx.pop();
     f.jump(0.3, { dur: 0.3 });
-  });
+  }, opt);
   canvas.addEventListener('pointermove', (e) => {
     if (!drag) return;
     const g = arena.groundAt(e.clientX, e.clientY);
     if (g) drag.target = clampR(g);
-  });
+  }, opt);
   const endDrag = () => { if (drag) { const f = drag.f; drag = null; const i = figs.indexOf(f); home[i] = f.home.clone(); } };
-  canvas.addEventListener('pointerup', endDrag);
-  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerup', endDrag, opt);
+  canvas.addEventListener('pointercancel', endDrag, opt);
   const dragLoop = setInterval(() => {
     if (!drag?.target || drag.f.busy()) return;
     const f = drag.f, t = drag.target;
@@ -277,6 +284,7 @@ export async function playScreen(el, { ids, stage }) {
 
   return () => {
     alive = false;
+    listen.abort();
     clearInterval(dragLoop);
     stopMusic();
     for (const o of extras) removeExtra(o);

@@ -32,7 +32,12 @@ export function ownerName() { return db.settings().ownerName || ''; }
 async function show(name, params = {}, { replace = false, isBack = false } = {}) {
   const loader = screens[name];
   if (!loader) throw new Error(`unknown screen ${name}`);
-  const factory = await loader();
+  let factory;
+  try { factory = await loader(); } catch (e) {
+    console.error('[toy-arena] could not load screen', name, e);
+    toast('Oops! Let’s try that again.');
+    return;
+  }
   const prev = current;
   if (prev) {
     try { await prev.cleanup?.(); } catch (e) { console.warn('[toy-arena] cleanup', e); }
@@ -57,7 +62,8 @@ async function show(name, params = {}, { replace = false, isBack = false } = {})
   } catch (e) {
     console.error('[toy-arena] screen failed', name, e);
     toast('Oops! Let’s try that again.');
-    if (name !== 'home') return go('home', {}, { replace: true, reset: true });
+    // queue (don't await) — awaiting here would wait on this very navigation and freeze the app
+    if (name !== 'home') setTimeout(() => go('home', {}, { replace: true, reset: true }), 0);
   }
   if (!isBack) { try { history.pushState({ n: stack.length }, ''); } catch { /* ignore */ } }
   document.body.dataset.screen = name;

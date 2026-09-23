@@ -26,7 +26,9 @@ function ensure() {
 export function unlockAudio() {
   const c = ensure();
   if (!c) return;
-  if (c.state === 'suspended') c.resume().catch(() => {});
+  if (c.state !== 'running') c.resume().catch(() => {}); // iOS also uses 'interrupted' after calls/camera
+  // Play through the iPhone's silent switch like a game (Safari 16.4+).
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch { /* unsupported */ }
   const b = c.createBuffer(1, 1, 22050);
   const s = c.createBufferSource();
   s.buffer = b; s.connect(c.destination); s.start(0);
