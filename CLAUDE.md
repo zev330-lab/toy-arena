@@ -13,7 +13,9 @@ in a 3D arena. Zero reading required to play; big bright tactile UI; no dead end
 - Never hard-code the child's name (a unit test greps for it). Owner name comes from the first-launch
   "Who's the Toy Master?" screen / grown-ups panel.
 - Kid-appropriate: cartoon action only (POW bubbles, stars, flop-and-bow KO). No blood/scary content.
-- Do not publish/deploy or create a remote without the owner's approval.
+- Live: https://zev330-lab.github.io/toy-arena/ (GitHub Pages from `main`, repo zev330-lab/toy-arena, public — owner approved 2026-09-22). Every push to `main` deploys; bump the SW cache version when shell files change.
+- The repo is public: never commit real toy photos (`test/photos/` is git-ignored) or the child's name.
+- Tests must be silent (see `js/audio.js` webdriver guard + `SILENCE` in e2e). Never run WebKit tests on the owner's Mac.
 
 ## Architecture
 - `index.html` — shell, import map, boot splash. `css/app.css` — all styling (comic/toy-box tokens at top).
