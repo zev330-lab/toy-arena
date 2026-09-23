@@ -176,7 +176,7 @@ const ctx = await browser.newContext({ ...phone, acceptDownloads: true });
 await ctx.addInitScript(SILENCE);
 const page = await ctx.newPage();
 watch(page, 'main');
-await page.goto(`${BASE}?nosw`);
+await page.goto(`${BASE}?nosw&mute=1`);
 await ready(page);
 
 await step('01 first launch: Toy Master setup', async () => {
@@ -204,7 +204,7 @@ await step('02 add toy — smart cutout (MediaPipe) + EXIF-rotated photo + back 
 });
 
 await step('03 add toy — fallback cutout (?cutout=simple)', async () => {
-  await page.goto(`${BASE}?nosw&cutout=simple`);
+  await page.goto(`${BASE}?nosw&mute=1&cutout=simple`);
   await ready(page);
   const m = await addToyFlow(page, { photo: path.join(FIX, 'figure_front.jpg'), name: 'Blaze Tiger', power: 'fire', prefix: '04-simple' });
   facts.simpleCutout = m;
@@ -214,7 +214,7 @@ await step('03 add toy — fallback cutout (?cutout=simple)', async () => {
 });
 
 await step('04 smart cutout on a busy, cluttered background', async () => {
-  await page.goto(`${BASE}?nosw`);
+  await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   await tapText(page, 'Add a Toy');
   await screen(page, 'add');
@@ -235,14 +235,14 @@ await step('04 smart cutout on a busy, cluttered background', async () => {
 
 for (const [i, photo] of REAL_PHOTOS.entries()) {
   await step(`05 real toy photo ${path.basename(photo)}`, async () => {
-    await page.goto(`${BASE}?nosw`);
+    await page.goto(`${BASE}?nosw&mute=1`);
     await ready(page);
     await addToyFlow(page, { photo, name: `Real Toy ${i + 1}`, power: 'strength', prefix: `06-real-${i + 1}`, truth: false });
   });
 }
 
 await step('06 collection persists across reload + detail turntable', async () => {
-  await page.goto(`${BASE}?nosw`);
+  await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   await tapText(page, 'My Toys');
   await screen(page, 'toys');
@@ -292,7 +292,7 @@ await step('06 collection persists across reload + detail turntable', async () =
 });
 
 async function runBattle(prefix, { players = '1p', stage = 'city', maxMs = 240000, fighters = ['Claw Crusher', 'Robo Buddy'] } = {}) {
-  await page.goto(`${BASE}?nosw`);
+  await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   await tapText(page, 'Battle');
   await screen(page, 'pick');
@@ -371,7 +371,7 @@ await step('09 other arenas render (space, volcano)', async () => {
 });
 
 await step('10 play mode with 4 toys: every action + drag', async () => {
-  await page.goto(`${BASE}?nosw`);
+  await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   await tapText(page, 'Play');
   await screen(page, 'pick');
@@ -416,7 +416,7 @@ await step('10 play mode with 4 toys: every action + drag', async () => {
 });
 
 await step('11 settings: backup export → delete → restore round-trip', async () => {
-  await page.goto(`${BASE}?nosw`);
+  await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   await page.waitForTimeout(300);
   const gear = page.getByRole('button', { name: 'Grown-ups: hold for settings' });
@@ -473,7 +473,7 @@ await step('11 settings: backup export → delete → restore round-trip', async
 
 await step('12 landscape layout', async () => {
   await page.setViewportSize({ width: 844, height: 390 });
-  await page.goto(`${BASE}?nosw`);
+  await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   await page.waitForTimeout(600);
   await shot(page, '19-landscape-home');
@@ -495,7 +495,7 @@ await step('13 service worker registers, app + smart cutout work offline', async
   await c2.addInitScript(SILENCE);
   const p2 = await c2.newPage();
   watch(p2, 'sw');
-  await p2.goto(BASE);
+  await p2.goto(`${BASE}?mute=1`);
   await ready(p2);
   await p2.evaluate(() => navigator.serviceWorker.ready);
   await p2.reload();

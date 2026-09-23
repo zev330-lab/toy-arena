@@ -28,5 +28,7 @@ test('manifest is installable: standalone, portrait, 192 + 512 icons', () => {
 
 test('no hard-coded child name in the app source', () => {
   const src = [...walk('js'), 'index.html'].map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
-  const name = Buffer.from('cGFya2Vy', 'base64').toString();  assert.ok(!new RegExp(name, 'i').test(src), 'found a hard-coded name');
+  // The name is base64-encoded so it never appears in plain text in the public repo either.
+  const name = Buffer.from('cGFya2Vy', 'base64').toString();
+  assert.ok(!new RegExp(name, 'i').test(src), 'found a hard-coded name');
 });
