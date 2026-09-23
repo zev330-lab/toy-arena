@@ -15,7 +15,7 @@ export async function pickScreen(el, params = {}) {
   const toys = await loadToys();
   const selected = (params.preselect || []).filter(id => toys.find(t => t.id === id)).slice(0, max);
 
-  const slots = h('div', { class: 'slots' });
+  const slots = h('div', { class: `slots${max > 2 ? ' four' : ''}` });
   const grid = h('div', { class: 'toy-grid' });
   const goBtn = btn({ emoji: mode === 'battle' ? '⚔️' : '🎉', label: mode === 'battle' ? 'FIGHT!' : 'PLAY!', cls: 'red big wide', id: 'pick-go', onClick: () => next() });
   const renderSlots = () => {

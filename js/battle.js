@@ -27,12 +27,12 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   el.dataset.state = 'loading';
 
   const arena = new Arena(view, stage);
-  arena.framing = { lookY: 0.95, extraSpan: 1.9, minSpan: 3.2, height: 0.3, bias: 0 };
+  arena.framing = { lookY: 0.95, extraSpan: 1.9, minSpan: 2.8, height: 0.26, bias: 0 };
   const portrait = view.clientHeight > view.clientWidth;
-  const X = portrait ? 0.95 : 1.45;
+  const X = portrait ? 0.85 : 1.45;
   const figs = [await arena.addToy(toys[0], -X, 0), await arena.addToy(toys[1], X, 0)];
   figs[0].face(X); figs[1].face(-X);
-  arena.framing.extraSpan = Math.max(...figs.map(f => f.built.width)) + 0.45;
+  arena.framing.extraSpan = Math.max(...figs.map(f => f.built.width)) + 0.3;
   const F = [0, 1].map(i => ({ i, toy: toys[i], fig: figs[i], st: createFighter(toys[i], { isCpu: !two && i === 1 }), windUntil: 0 }));
   const match = createMatch(F[0].st, F[1].st);
 

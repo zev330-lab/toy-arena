@@ -31,7 +31,7 @@ export async function addScreen(el, params = {}) {
   function start(side = 'front') {
     const isBack = side === 'back';
     el.append(
-      topbar(isBack ? 'Its Back' : retake ? 'New Photo' : 'Add a Toy', { onBack: () => (isBack ? setStep(backQuestion) : navBack()) }),
+      topbar(isBack ? 'Back Side' : retake ? 'New Photo' : 'Add a Toy', { onBack: () => (isBack ? setStep(backQuestion) : navBack()) }),
       h('div', { class: 'center-col' },
         h('div', { class: 'big-emoji', style: { fontSize: '96px' } }, isBack ? '🔄' : '🧸'),
         h('p', { class: 'hint', style: { fontSize: '24px' } }, isBack ? 'Turn your toy around!' : 'Put your toy on a table!'),
@@ -75,7 +75,7 @@ export async function addScreen(el, params = {}) {
     el.dataset.cutMethod = session.method;
     el.dataset.coverage = cut.coverage.toFixed(3);
     el.append(
-      topbar(side === 'back' ? 'Its Back!' : 'Is this it?', { onBack: () => setStep(start, side) }),
+      topbar(side === 'back' ? 'The Back!' : 'Is this it?', { onBack: () => setStep(start, side) }),
       h('div', { class: 'starburst' }, cut.canvas),
       h('div', { class: 'action-row' },
         btn({ emoji: '🔄', label: 'Retake', cls: 'white', onClick: () => setStep(start, side) }),
@@ -207,7 +207,7 @@ export async function addScreen(el, params = {}) {
   function backQuestion() {
     const img = h('div', { class: 'starburst', style: { flex: '0.9' } }, draft.front.canvas);
     el.append(
-      topbar('Its back?', { onBack: () => setStep(preview, 'front') }),
+      topbar('Back Too?', { onBack: () => setStep(preview, 'front') }),
       img,
       h('p', { class: 'subtitle', style: { margin: '14px 0 0' } }, '📸 Snap its back too?'),
       h('div', { class: 'action-row' },

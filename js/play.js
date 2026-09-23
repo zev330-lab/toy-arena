@@ -82,7 +82,7 @@ export async function playScreen(el, { ids, stage }) {
       startMusic('dance');
       const cols = [0xff3d3d, 0x29d3ff, 0xffd23f, 0x8e5cff];
       const lights = cols.map((c, i) => { const l = new THREE.PointLight(c, 18, 9, 1.5); l.position.set(Math.cos(i * 1.6) * 2.5, 2.6, Math.sin(i * 1.6) * 2); return addExtra(l); });
-      const ball = addExtra(new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 1), new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 1, roughness: 0.15, flatShading: true, emissive: 0x333333 })));
+      const ball = addExtra(new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.35, roughness: 0.2, flatShading: true, emissive: 0x8888aa, emissiveIntensity: 0.6 })));
       ball.position.set(0, 5, -0.5);
       arena.lights.hemi.intensity *= 0.45;
       const beat = 0.5;

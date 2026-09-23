@@ -77,8 +77,22 @@ async function maskIoU(page, truthUrl) {
       if (mask[i] || t) uni++;
       area += mask[i];
     }
+    // visual diff for humans: white = match, red = extra, blue = missed
+    const vis = g.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      const t = px[i * 4] > 127, m = !!mask[i];
+      const c = m && t ? [255, 255, 255] : m ? [255, 40, 40] : t ? [40, 90, 255] : [20, 20, 30];
+      vis.data.set([...c, 255], i * 4);
+    }
+    g.putImageData(vis, 0, 0);
+    window.__lastMaskDiff = c.toDataURL();
     return { iou: inter / uni, coverage: area / (w * h), method: session.method, w, h };
   }, truthUrl);
+}
+
+async function saveDiff(page, name) {
+  const d = await page.evaluate(() => window.__lastMaskDiff);
+  fs.writeFileSync(path.join(SHOTS, `${name}.png`), Buffer.from(d.split(',')[1], 'base64'));
 }
 
 async function addToyFlow(page, { photo, back = null, name, power, prefix, truth = true, useFix = false }) {
@@ -90,6 +104,7 @@ async function addToyFlow(page, { photo, back = null, name, power, prefix, truth
   await idle(page);
   await page.waitForTimeout(900);
   const m = truth ? await maskIoU(page, `${BASE}test/fixtures/truth_front.png`) : null;
+  if (m && prefix) await saveDiff(page, `${prefix}-mask-diff`);
   if (prefix) await shot(page, `${prefix}-b-cutout-preview`);
   if (useFix) {
     await tapText(page, 'Fix');
@@ -100,6 +115,19 @@ async function addToyFlow(page, { photo, back = null, name, power, prefix, truth
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.45);
     await page.waitForTimeout(1200);
     if (prefix) await shot(page, `${prefix}-d-fix-after-tap`);
+    // grown-up brush: rub out the strip of table between the legs
+    const areaBefore = await page.evaluate(() => document.querySelector('.screen.add').__cut.session.mask.reduce((a, b) => a + b, 0));
+    await page.locator('[data-tool="erase"]').click({ force: true });
+    const cx = box.x + box.width / 2;
+    await page.mouse.move(cx, box.y + box.height * 0.62);
+    await page.mouse.down();
+    await page.mouse.move(cx, box.y + box.height * 0.76, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const areaAfter = await page.evaluate(() => document.querySelector('.screen.add').__cut.session.mask.reduce((a, b) => a + b, 0));
+    facts.brushErase = { areaBefore, areaAfter };
+    assert(areaAfter < areaBefore, 'erase brush did not change the mask');
+    if (prefix) await shot(page, `${prefix}-d2-fix-erased`);
     await tapText(page, 'Done');
     await page.waitForSelector('.starburst canvas.cut');
   }
@@ -186,6 +214,7 @@ await step('04 smart cutout on a busy, cluttered background', async () => {
   await page.waitForTimeout(700);
   const m = await maskIoU(page, `${BASE}test/fixtures/truth_front.png`);
   facts.busyCutout = m;
+  await saveDiff(page, '05-busy-mask-diff');
   console.log('   busy background:', JSON.stringify(m));
   await shot(page, '05-busy-background-cutout');
   assert(m.iou > 0.8, `busy-background IoU ${m.iou}`);
@@ -234,6 +263,22 @@ await step('06 collection persists across reload + detail turntable', async () =
   await page.waitForTimeout(500);
   await shot(page, '11-change-power-modal');
   await page.getByRole('button', { name: 'Cancel' }).click({ force: true });
+  // retake the photo of an existing toy: keeps name, stats and wins
+  const pick = () => page.evaluate(async () => { const t = (await window.__toyArena.db.allToys()).find(x => x.name === 'Claw Crusher'); return { id: t.id, size: t.frontBlob.size, back: !!t.backBlob, wins: t.wins }; });
+  const before = await pick();
+  await page.getByRole('button', { name: 'Photo' }).click({ force: true });
+  await screen(page, 'add');
+  await upload(page, 'Take a photo', path.join(FIX, 'figure_front.jpg'));
+  await page.waitForSelector('.starburst canvas.cut', { timeout: 90000 });
+  await idle(page);
+  await page.locator('#cut-yes').click({ force: true });
+  await page.waitForSelector('text=Snap its back too?');
+  await tapText(page, 'Skip');
+  await screen(page, 'toy', 60000);
+  const after = await pick();
+  assert(after && after.id === before.id && after.size !== before.size && !after.back, 'retake did not replace the photo');
+  await page.waitForTimeout(1200);
+  await shot(page, '11b-after-retake');
 });
 
 async function runBattle(prefix, { players = '1p', stage = 'city', maxMs = 240000, fighters = ['Claw Crusher', 'Robo Buddy'] } = {}) {
