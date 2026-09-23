@@ -377,7 +377,7 @@ export class Arena {
     const vfov = THREE.MathUtils.degToRad(this.camera.fov);
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
     const figH = 2.4;
-    let dist = Math.max((span / 2) / Math.tan(hfov / 2), (figH / 2) / Math.tan(vfov / 2) * 1.35) * 1.05 + size.z * 0.5;
+    let dist = Math.max((span / 2) / Math.tan(hfov / 2), (figH / 2) / Math.tan(vfov / 2) * 1.9) * 1.05 + size.z * 0.5;
     dist *= 1 - this.punch * 0.12;
     this.orbit = Math.sin(this.time * 0.13) * 0.16;
     const target = new THREE.Vector3(center.x, fr.lookY, center.z);

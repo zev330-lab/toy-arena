@@ -3,14 +3,15 @@
 // Needs Playwright (`npm i -D @playwright/test && npx playwright install chromium`).
 // Screenshots → test/screenshots/. Exit code 1 if any step fails or the page logs an error.
 
-import { chromium, devices } from '@playwright/test';
+import { chromium, webkit, devices } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BASE = process.env.BASE || 'http://localhost:8765/';
-const SHOTS = path.join(HERE, 'screenshots');
+const ENGINE = process.env.BROWSER === 'webkit' ? 'webkit' : 'chromium';
+const SHOTS = path.join(HERE, 'screenshots', ENGINE === 'webkit' ? 'webkit' : '');
 const FIX = path.join(HERE, 'fixtures');
 const OUT = path.join(HERE, 'e2e-out');
 fs.mkdirSync(SHOTS, { recursive: true });
@@ -24,7 +25,10 @@ const errors = [];
 const warnings = [];
 const facts = {};
 
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const browser = ENGINE === 'webkit'
+  ? await webkit.launch()
+  : await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+console.log(`engine: ${ENGINE} ${browser.version()}`);
 const phone = { ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
 
 function watch(page, label) {
@@ -462,6 +466,13 @@ await step('12 landscape layout', async () => {
   await ready(page);
   await page.waitForTimeout(600);
   await shot(page, '19-landscape-home');
+  await page.evaluate(() => window.__toyArena.go('battle', { ids: ['builtin-robo', 'builtin-blobby'], players: '1p', stage: 'volcano' }));
+  await page.waitForFunction(() => document.querySelector('.screen.battle')?.dataset.state === 'fighting', null, { timeout: 30000 });
+  await page.locator('.controls.p1 [data-move="punch"]').tap({ force: true });
+  await page.waitForTimeout(250);
+  await shot(page, '19-landscape-battle');
+  await page.evaluate(() => window.__toyArena.go('home', {}, { reset: true }));
+  await screen(page, 'home');
   await page.setViewportSize({ width: 390, height: 844 });
 });
 
@@ -518,5 +529,5 @@ const wUniq = [...new Set(warnings.map(w => w.replace(/0x[0-9a-f]+/g, '')))];
 console.log(`console warnings (unique): ${wUniq.length}`);
 for (const w of wUniq.slice(0, 15)) console.log('  ', w);
 console.log('facts:', JSON.stringify(facts, null, 1));
-fs.writeFileSync(path.join(OUT, 'e2e-results.json'), JSON.stringify({ results, errors: realErrors, warnings: wUniq, facts }, null, 1));
+fs.writeFileSync(path.join(OUT, `e2e-results-${ENGINE}.json`), JSON.stringify({ results, errors: realErrors, warnings: wUniq, facts }, null, 1));
 process.exit(results.some(r => !r.ok) || realErrors.length ? 1 : 0);
