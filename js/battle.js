@@ -21,14 +21,16 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   const two = players === '2p';
   const difficulty = db.settings().difficulty || 'easy';
   const view = h('div', { class: 'viewport' });
-  const hud = h('div', { class: `hud${two ? ' two' : ''}` });
+  const hud = h('div', { class: 'hud' });
   const fxLayer = h('div', { class: 'fullbleed', style: { pointerEvents: 'none', zIndex: 12 } });
   el.append(view, fxLayer, hud);
   el.dataset.state = 'loading';
 
   const arena = new Arena(view, stage);
-  arena.framing = { lookY: 0.95, extraSpan: 1.9, minSpan: 2.8, height: 0.26, bias: 0 };
   const portrait = view.clientHeight > view.clientWidth;
+  // framing: two players upright → toys a bit higher (their pads sit in the bottom corners);
+  // sideways → toys a bit lower (a jump's apex stays clear of the health bars)
+  arena.framing = { lookY: portrait ? (two ? 0.62 : 0.95) : 1.25, extraSpan: 1.9, minSpan: 2.8, height: 0.26, bias: 0 };
   const X = portrait ? 0.85 : 1.45;
   let figs;
   try { figs = [await arena.addToy(toys[0], -X, 0), await arena.addToy(toys[1], X, 0)]; } catch (e) { arena.dispose(); throw e; }
@@ -101,7 +103,9 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     if (view.clientHeight > view.clientWidth && Math.min(innerWidth, innerHeight) < 600) {
       const hint = h('div', { class: 'rotate-hint', 'aria-hidden': 'true' }, '📱', h('span', {}, '↻'));
       hud.append(hint);
-      later(5000, () => hint.remove());
+      const drop = () => hint.remove();
+      later(6000, drop);
+      matchMedia('(orientation: landscape)').addEventListener?.('change', drop, { once: true }); // they turned it
     }
   } else {
     const pad = controlPad(F[0], 'p1');

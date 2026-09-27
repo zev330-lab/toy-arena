@@ -17,10 +17,10 @@ test('service worker precaches every app module, stylesheet and icon', () => {
   for (const f of shell.filter(s => s !== './')) assert.ok(fs.existsSync(path.join(ROOT, f)), `sw.js lists missing file ${f}`);
 });
 
-test('manifest is installable: standalone, portrait, 192 + 512 icons', () => {
+test('manifest is installable: standalone, can turn sideways (two players), 192 + 512 icons', () => {
   const m = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.webmanifest'), 'utf8'));
   assert.equal(m.display, 'standalone');
-  assert.equal(m.orientation, 'portrait');
+  assert.equal(m.orientation, 'any'); // two-player is side by side with the phone held sideways
   const sizes = m.icons.map(i => i.sizes);
   assert.ok(sizes.includes('192x192') && sizes.includes('512x512'));
   for (const i of m.icons) assert.ok(fs.existsSync(path.join(ROOT, i.src)));

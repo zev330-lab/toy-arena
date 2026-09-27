@@ -332,9 +332,9 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .controls.p1.solo { left: calc(var(--sal) + 10px); right: calc(var(--sar) + 10px); grid-template-columns: repeat(5, 1fr); gap: 4px; justify-items: center; }
 .controls.solo .btn { width: min(72px, 18.5vw); height: min(72px, 18.5vw); font-size: 12px; }
 .controls.solo .btn .emo { font-size: min(31px, 8vw); }
-/* two players: 2 × 2 fists/feet/shield/super, jump as a wide pill underneath (above, for the flipped P2 pad) */
+/* two players: 2 × 2 fists/feet/shield/super, jump as a wide pill underneath */
 .controls:not(.solo) .btn.jump { grid-column: 1 / -1; width: 100%; height: 50px; border-radius: 99px; flex-direction: row; gap: 6px; font-size: 16px; }
-.rotate-hint { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); font-size: 64px; pointer-events: none; z-index: 6;
+.rotate-hint { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%); font-size: 64px; pointer-events: none; z-index: 6;
   filter: drop-shadow(0 4px 0 rgba(0,0,0,.4)); animation: rotateHint 1.6s ease-in-out infinite; }
 .rotate-hint span { position: absolute; right: -30px; top: -14px; font-size: 40px; color: #fff; text-shadow: 0 3px 0 var(--ink); }
 @keyframes rotateHint { 0%, 20% { transform: translate(-50%, -50%) rotate(0); } 60%, 100% { transform: translate(-50%, -50%) rotate(-90deg); } }
@@ -417,7 +417,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   .power-grid { grid-template-columns: repeat(5, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bg-burst, .starburst::before { animation: none; }
+  .bg-burst, .starburst::before, .rotate-hint { animation: none; }
 }
 .modal .row .field { flex: 1; min-width: 0; }
 .name-row .field { flex: 1; min-width: 0; }

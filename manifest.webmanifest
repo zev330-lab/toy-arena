@@ -6,7 +6,7 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#170c55",
   "theme_color": "#170c55",
   "categories": ["games", "kids", "entertainment"],
