@@ -115,7 +115,12 @@ export class Figure {
   busy() { return this.actions.length > 0; }
 
   // ---------- pose helpers (all no-ops when the toy has no such bone) ----------
-  newPose() { return { x: 0, y: 0, z: 0, lean: 0, tilt: 0, spin: 0, yaw: 0, sy: 1, flip: 0, noWalk: false, snap: 1, q: new Map() }; }
+  /** A fresh pose; bone rotations live in one reused map per toy (no per-frame allocations). */
+  newPose() {
+    if (!this.poseQ) this.poseQ = new Map();
+    for (const q of this.poseQ.values()) q.identity();
+    return { x: 0, y: 0, z: 0, lean: 0, tilt: 0, spin: 0, yaw: 0, sy: 1, flip: 0, noWalk: false, snap: 1, q: this.poseQ };
+  }
   q(pose, name) { let q = pose.q.get(name); if (!q) { q = new THREE.Quaternion(); pose.q.set(name, q); } return q; }
   /** Additive local rotation (radians) on a bone. */
   turn(pose, name, rx = 0, ry = 0, rz = 0) {
@@ -285,7 +290,8 @@ export class Figure {
     const sxz = 1 / Math.sqrt(sy);
     this.spinG.scale.set(sxz, sy, sxz);
     // bones
-    for (const [name, b] of Object.entries(this.bones)) {
+    if (!this.boneList) this.boneList = Object.entries(this.bones);
+    for (const [name, b] of this.boneList) {
       const q = pose.q.get(name);
       if (q) b.quaternion.copy(q); else b.quaternion.identity();
     }
