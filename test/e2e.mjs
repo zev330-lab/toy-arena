@@ -623,6 +623,29 @@ await step('13 service worker registers, app + smart cutout work offline', async
   await c2.close();
 });
 
+await step('14 update: a device on an older version reloads into the new one by itself', async () => {
+  const c3 = await browser.newContext({ ...phone });
+  await c3.addInitScript(SILENCE);
+  const p3 = await c3.newPage();
+  watch(p3, 'upgrade');
+  // pretend this device ran an older version: its shell cache exists, no worker for this build yet
+  await p3.goto(`${BASE}?nosw&mute=1`);
+  await ready(p3);
+  await p3.evaluate(async () => { const c = await caches.open('toy-arena-shell-v2.0.0'); await c.put(new URL('old-marker', location.href).href, new Response('old')); });
+  let loads = 0;
+  p3.on('load', () => { loads++; });
+  await p3.goto(`${BASE}?mute=1`);
+  const t0 = Date.now();
+  while (loads < 2 && Date.now() - t0 < 60000) await p3.waitForTimeout(500);
+  assert(loads >= 2, `page was not reloaded by the new worker (loads ${loads})`);
+  await ready(p3);
+  const st = await p3.evaluate(async () => ({ keys: await caches.keys(), controlled: !!navigator.serviceWorker.controller }));
+  facts.upgrade = { loads, ...st };
+  assert(!st.keys.includes('toy-arena-shell-v2.0.0'), 'old shell cache kept');
+  assert(st.controlled, 'page not controlled after the upgrade reload');
+  await c3.close();
+});
+
 await browser.close();
 
 const ignorable = (e) => /GPU stall due to ReadPixels/.test(e);

@@ -24,7 +24,8 @@ function alphaOf(canvas) {
 /** Must be called straight from a tap (iOS only opens the photo picker inside a user gesture). */
 export async function bulkAdd() {
   if (!aiDisabled()) loadSegmenter().catch(() => {}); // start the model while the picker is open
-  const files = (await pickPhotos()).slice(0, MAX);
+  const picked = await pickPhotos();
+  const files = picked.slice(0, MAX);
   if (!files.length) return 0;
   let stopped = false;
   const b = busy(`Making toy 1 of ${files.length}…`, { emoji: '🪄', onStop: () => { stopped = true; b.set('Stopping…'); } });
@@ -65,12 +66,13 @@ export async function bulkAdd() {
   b.close();
   db.requestPersist();
   if (!made) {
-    await modal({ emoji: '🙈', title: 'Oops!', text: 'No toys found in those photos. Try photos where the toy stands out!', actions: [{ emoji: '👍', label: 'OK', cls: 'yellow', value: true }] });
+    if (!stopped) await modal({ emoji: '🙈', title: 'Oops!', text: 'No toys found in those photos. Try photos where the toy stands out!', actions: [{ emoji: '👍', label: 'OK', cls: 'yellow', value: true }] });
     return 0;
   }
   sfx.fanfare();
   confetti(document.getElementById('app'), 80);
-  toast(`🎉 ${made} new toy${made === 1 ? '' : 's'}!${skipped ? ` (${skipped} skipped)` : ''}`);
+  const extra = [skipped ? `${skipped} skipped` : '', picked.length > MAX ? `first ${MAX} photos` : ''].filter(Boolean).join(', ');
+  toast(`🎉 ${made} new toy${made === 1 ? '' : 's'}!${extra ? ` (${extra})` : ''}`);
   go('toys', {}, { reset: true });
   return made;
 }

@@ -227,10 +227,11 @@ export async function playScreen(el, { ids, stage }) {
   async function run(id, b) {
     if (busy || !alive) return;
     busy = id;
-    await entered; // an early tap waits for the toys to finish walking in (else the walk-in's end would snap them back)
-    for (const f of figs) f.stopTagged('fidget'); // drop idle fidgets so they don't mix into the action
-    el.dataset.busy = id;
+    el.dataset.busy = id; // mark busy before any wait, so nothing reads this screen as idle meanwhile
     b.classList.add('busy-act');
+    await entered; // an early tap waits for the toys to finish walking in (else the walk-in's end would snap them back)
+    if (!alive) { busy = null; return; } // left the screen meanwhile
+    for (const f of figs) f.stopTagged('fidget'); // drop idle fidgets so they don't mix into the action
     try { await ACTIONS[id](); } catch (e) { console.error('[toy-arena] play action', id, e); }
     b.classList.remove('busy-act');
     busy = null;

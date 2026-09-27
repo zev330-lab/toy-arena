@@ -79,14 +79,14 @@ export async function openSettings() {
     }
     return box;
   };
-  let bulk = null;
-  import('./bulk.js').then((m) => { bulk = m; }).catch(() => {}); // preload so a tap can open the picker at once
-  const toys = await db.allToys();
+  // loaded before the panel shows: the Many Photos tap must open the iOS picker synchronously
+  const [bulk, toys] = await Promise.all([import('./bulk.js').catch(() => null), db.allToys()]);
   const dummies = toys.filter(t => t.builtin);
   // iPhone/iPad keep a separate toy box for the Home Screen icon and for a Safari tab
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const own = toys.filter(t => !t.builtin).length;
-  const where = `📍 This copy: ${standalone ? 'the Home Screen app' : 'a browser tab'} — ${own} toy${own === 1 ? '' : 's'} here. The Home Screen icon and Safari keep separate toy boxes: if toys are missing, open the game the other way.`;
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const where = `📍 This copy: ${standalone ? 'the Home Screen app' : 'a browser tab'} — ${own} toy${own === 1 ? '' : 's'} here.${ios ? ' The Home Screen icon and Safari keep separate toy boxes: if toys are missing, open the game the other way.' : ''}`;
   const dummiesHidden = dummies.length && dummies.every(t => t.hidden);
   const body = h('div', { class: 'settings-list' },
     h('div', { class: 'sec' }, h('h4', {}, '🦸 Toy Master name'), name, h('small', {}, 'Shows on the title. Leave empty for “Toy Arena”.')),
@@ -102,12 +102,11 @@ export async function openSettings() {
       h('div', { class: 'row' },
         btn({ emoji: '📤', label: 'Save', cls: 'blue small', onClick: () => exportBackup() }),
         btn({ emoji: '📥', label: 'Restore', cls: 'green small', onClick: () => importBackup() })),
-      h('div', { class: 'row' },
+      bulk ? h('div', { class: 'row' },
         btn({ emoji: '📚', label: 'Many Photos', cls: 'purple small', aria: 'Add many toys from photos', onClick: () => {
-          // iOS only opens the photo picker inside the tap itself: call straight into the preloaded module
-          const run = (m) => { const p = m.bulkAdd(); document.querySelector('.modal-back')?.close?.(true); return p; };
-          if (bulk) run(bulk); else import('./bulk.js').then(run);
-        } })),
+          bulk.bulkAdd(); // opens the photo picker inside this tap (iOS requires it)
+          document.querySelector('.modal-back')?.close?.(true);
+        } })) : null,
       h('small', {}, 'Save makes one file with every toy — share it with AirDrop or keep it in Files. On the other device, tap Restore and pick the file: it adds the toys and never deletes any. Photos only travel where you send them.'),
       h('small', { class: 'where' }, where)),
     h('small', { style: { textAlign: 'center' } }, `Toy Arena ${APP_VERSION} · no accounts · no tracking`),

@@ -64,8 +64,9 @@ self.addEventListener('install', (event) => {
     await cache.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })));
     // Take over right away. Waiting for every old page to close never happened on iPads, where
     // the home-screen app stays suspended for days; old pages are reloaded on activate instead,
-    // so no page ever mixes old and new modules.
-    await self.skipWaiting();
+    // so no page ever mixes old and new modules. Browsers that can't reload a page from here
+    // (no WindowClient.navigate, Safari < 16) keep the old "new version on next launch" behaviour.
+    if (self.WindowClient && 'navigate' in WindowClient.prototype) await self.skipWaiting();
   })());
 });
 
@@ -79,9 +80,8 @@ self.addEventListener('activate', (event) => {
     // pages still running the previous version reload into this one (toys live in IndexedDB,
     // untouched); first installs don't reload
     if (upgraded) {
-      for (const client of await self.clients.matchAll({ type: 'window' })) {
-        try { await client.navigate(client.url); } catch { /* Safari < 16: it updates on the next launch */ }
-      }
+      // never await navigate() here: the reload's own request waits for this activation to finish
+      for (const client of await self.clients.matchAll({ type: 'window' })) client.navigate?.(client.url)?.catch(() => {});
     }
   })());
 });
