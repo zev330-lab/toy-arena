@@ -186,7 +186,7 @@ export async function toyScreen(el, { id }) {
       return;
     }
     const v = await modal({ emoji: '🗑️', title: `Delete ${toy.name}?`, text: 'Grown-ups: press and HOLD the red button.',
-      actions: [{ emoji: '❌', label: 'Keep', cls: 'green', value: false }, { emoji: '🗑️', label: 'Hold', cls: 'red', value: true, hold: 1000, holdHint: '✋ Hold it down to delete' }] });
+      actions: [{ emoji: '❌', label: 'Keep', cls: 'green', value: false }, { emoji: '🗑️', label: 'Hold', aria: 'Hold to delete', cls: 'red', value: true, hold: 1000, holdHint: '✋ Hold it down to delete' }] });
     if (v) { await db.deleteToy(toy.id); toast(`👋 Bye ${toy.name}!`); go('toys', {}, { replace: true }); }
   };
   el.append(

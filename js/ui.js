@@ -55,7 +55,7 @@ export function modal({ emoji, title, text, body, actions = [], dismissable = tr
       resolve(v);
     };
     const btns = actions.map(a => {
-      const b = btn({ emoji: a.emoji, label: a.label, cls: a.cls || 'white' });
+      const b = btn({ emoji: a.emoji, label: a.label, cls: a.cls || 'white', aria: a.aria });
       if (a.hold) holdToConfirm(b, a.hold, () => close(a.value), { hint: a.holdHint });
       else b.addEventListener('click', () => close(typeof a.value === 'function' ? a.value() : a.value));
       return b;
