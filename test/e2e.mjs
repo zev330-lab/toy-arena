@@ -422,10 +422,19 @@ await step('07 battle vs CPU runs to a winner (button taps)', async () => {
   facts.afterBattle = wins;
 });
 
-await step('08 two-player layout (P2 controls rotated) + pause/quit', async () => {
+const padLayout = (pg) => pg.evaluate(() => {
+  const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+  const p1 = r('.controls.p1'), p2 = r('.controls.p2');
+  return { p1: [Math.round(p1.left), Math.round(p1.right)], p2: [Math.round(p2.left), Math.round(p2.right)], w: innerWidth,
+    upright: getComputedStyle(document.querySelector('.controls.p2')).transform === 'none' && getComputedStyle(document.querySelector('.controls.p1')).transform === 'none' };
+});
+
+await step('08 two-player layout: side by side, both upright + pause/quit', async () => {
   await runBattle('13-2p', { players: '2p', stage: 'jungle', fighters: ['Blaze Tiger', 'Kapow Kid'] });
-  const rot = await page.evaluate(() => getComputedStyle(document.querySelector('.controls.p2')).transform);
-  assert(rot && rot !== 'none', 'P2 controls are not rotated');
+  const lay = await padLayout(page);
+  facts.twoPlayerPortrait = lay;
+  assert(lay.upright, 'a player pad is rotated (upside down)');
+  assert(lay.p1[1] <= lay.w / 2 && lay.p2[0] >= lay.w / 2, `pads are not on their own sides ${JSON.stringify(lay)}`);
   for (let k = 0; k < 6; k++) {
     await page.locator('.controls.p1 [data-move="punch"]').tap({ force: true });
     await page.locator('.controls.p2 [data-move="kick"]').tap({ force: true });
@@ -442,6 +451,7 @@ await step('08 two-player layout (P2 controls rotated) + pause/quit', async () =
 await step('08b jump: a punch misses a jumping toy, a kick from the air is a flying kick', async () => {
   await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
+  await page.evaluate(() => window.__toyArena.loadToys()); // the built-in toys exist even on a fresh profile
   await page.evaluate(() => window.__toyArena.go('battle', { ids: ['builtin-megabot', 'builtin-kapow'], players: '2p', stage: 'city' }));
   await page.waitForFunction(() => document.querySelector('.screen.battle')?.dataset.state === 'fighting', null, { timeout: 60000 });
   assert(await page.locator('.controls.p1 [data-move="jump"]').count() === 1 && await page.locator('.controls.p2 [data-move="jump"]').count() === 1, 'jump buttons missing');
@@ -449,13 +459,16 @@ await step('08b jump: a punch misses a jumping toy, a kick from the air is a fly
   await B('b.freeze(); b.advance(0.3);');
   await page.locator('.controls.p1 [data-move="jump"]').tap({ force: true }); // a real tap on the button
   await B("b.doAttack(1, 'punch'); b.advance(0.28);");
-  await page.waitForTimeout(500);
+  await page.waitForSelector('.pow:has-text("MISS!")', { state: 'attached', timeout: 5000 }).catch(async (e) => {
+    console.log('   08b debug:', JSON.stringify(await B("return { air: b.F[0].st.airUntil, hp: b.F[0].st.hp, misses: document.querySelector('.screen.battle').dataset.misses, pows: [...document.querySelectorAll('.pow')].map(p => p.textContent) };")));
+    throw e;
+  });
   await shot(page, '13b-jump-dodge');
   const r1 = await B("return { hp: b.F[0].st.hp, misses: document.querySelector('.screen.battle').dataset.misses };");
   assert(r1.hp === 100 && r1.misses === '1', `jump did not dodge: ${JSON.stringify(r1)}`);
   // flying kick: P2 jumps, kicks in the air
   await B("b.advance(1.6); b.doJump(1); b.advance(0.3); b.doAttack(1, 'kick'); b.advance(0.45);");
-  await page.waitForTimeout(500);
+  await page.waitForSelector('.pow:has-text("FLYING KICK!")', { state: 'attached', timeout: 5000 });
   await shot(page, '13c-flying-kick');
   const r2 = await B('return b.F[0].st.hp;');
   facts.jump = { dodge: r1, afterFlyingKick: r2 };
@@ -600,6 +613,14 @@ await step('12 landscape layout', async () => {
   await page.locator('.controls.p1 [data-move="punch"]').tap({ force: true });
   await page.waitForTimeout(250);
   await shot(page, '19-landscape-battle');
+  // two players sideways: each player's pad on their own side, the arena upright for both
+  await page.evaluate(() => window.__toyArena.go('battle', { ids: ['builtin-megabot', 'builtin-kapow'], players: '2p', stage: 'jungle' }));
+  await page.waitForFunction(() => document.querySelector('.screen.battle')?.dataset.state === 'fighting', null, { timeout: 60000 });
+  await page.waitForTimeout(300);
+  const lay = await padLayout(page);
+  facts.twoPlayerLandscape = lay;
+  await shot(page, '19-landscape-2p');
+  assert(lay.upright && lay.p1[1] <= lay.w / 2 && lay.p2[0] >= lay.w / 2, `landscape 2P pads ${JSON.stringify(lay)}`);
   await page.evaluate(() => window.__toyArena.go('home', {}, { reset: true }));
   await screen(page, 'home');
   await page.setViewportSize({ width: 390, height: 844 });

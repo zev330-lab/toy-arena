@@ -346,6 +346,9 @@ export class Figure {
         this.stars.rotation.y += dt * 5;
       }
     }
+    const air = this.airNow || 0; // shield and glow ride along when the toy is in the air
+    if (this.shieldWrap) this.shieldWrap.position.y = this.height * 0.55 + air;
+    if (this.glow) this.glow.position.y = this.height * 0.5 + air;
     if (this.shield) {
       const on = t < this.shieldUntil;
       this.shieldScale += ((on ? 1 : 0) - this.shieldScale) * Math.min(1, dt * 18);
@@ -554,7 +557,7 @@ export class Figure {
   }
 
   /** Cartoon KO: flop over sideways, arms and legs flung out (stays down until getUp). */
-  flop() {
+  flop({ fromY = 0 } = {}) {
     const target = -Math.PI / 2 * 0.92;
     const splay = (pose) => {
       this.arms(pose, [55 * D, 0], [70 * D, 0], 1);
@@ -565,7 +568,7 @@ export class Figure {
     return this.play(0.7, (p, pose) => {
       const k = ease.back(p);
       pose.lean += target * k;
-      pose.y += Math.sin(Math.PI * p) * 0.35;
+      pose.y += Math.sin(Math.PI * p) * 0.35 + fromY * (1 - ease.out(Math.min(1, p * 1.6)));
       pose.snap = 0;
       pose.noWalk = true;
       for (const q of pose.q.values()) q.identity();

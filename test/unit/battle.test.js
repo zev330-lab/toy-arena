@@ -157,3 +157,15 @@ test('the CPU sometimes jumps: dodges on hard, hops for fun', () => {
   }
   assert.ok(dodges > 5 && dodges < 120, `hard CPU jumped ${dodges}/200`);
 });
+
+test('a new round starts on the ground, jump ready (the clock is paused between rounds)', () => {
+  const a = createFighter(toy('a', { power: 60, speed: 60, defense: 60 }));
+  const b = createFighter(toy('b', { power: 60, speed: 60, defense: 60 }));
+  const m = createMatch(a, b);
+  startJump(a, 10);
+  a.airAttack = true;
+  startRound(m);
+  assert.equal(isAirborne(a, 10.1), false, 'still flying after the reset');
+  assert.equal(canJump(a, 10.1), true);
+  assert.equal(a.airAttack, false);
+});

@@ -15,7 +15,7 @@ export const COMBO_WINDOW = 1.6;
 
 export const DIFFICULTY = {
   easy: { cpuDamage: 0.7, playerDamage: 1.15, think: [1.0, 1.7], block: 0.12, dodge: 0.06, hop: 0.05, attack: 0.7, kick: 0.3, special: 0.5 },
-  hard: { cpuDamage: 1.25, playerDamage: 0.9, think: [0.25, 0.5], block: 0.5, dodge: 0.3, hop: 0.06, attack: 0.95, kick: 0.45, special: 0.95 },
+  hard: { cpuDamage: 1.25, playerDamage: 0.9, think: [0.25, 0.5], block: 0.5, dodge: 0.15, hop: 0.06, attack: 0.95, kick: 0.45, special: 0.95 },
 };
 
 export function createFighter(toy, { isCpu = false } = {}) {
@@ -114,6 +114,7 @@ export function createMatch(a, b, { bestOf = 3 } = {}) {
 export function startRound(match) {
   for (const f of match.fighters) {
     f.hp = MAX_HP; f.busyUntil = 0; f.blockUntil = -1; f.combo = 0; f.lastHitAt = -99;
+    f.airUntil = -1; f.jumpReadyAt = 0; f.airAttack = false;
     f.meter = Math.min(f.meter, 50); // keep a little charge between rounds
   }
 }

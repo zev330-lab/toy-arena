@@ -66,14 +66,9 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     roundLabel.textContent = `R${match.round}`;
   };
   const pauseBtn = btn({ emoji: '⏸️', cls: 'icon white small', aria: 'Pause', onClick: () => pause() });
-  if (two) {
-    hud.append(
-      h('div', { class: 'p2hud' }, hpBox(F[1], 'l')),
-      h('div', { class: 'p1hud' }, hpBox(F[0], 'r')),
-      h('div', { class: 'hud-top-btns' }, pauseBtn, mid));
-  } else {
-    hud.append(h('div', { class: 'bars' }, hpBox(F[0], 'l'), mid, hpBox(F[1], 'r')), h('div', { class: 'hud-top-btns' }, pauseBtn));
-  }
+  // one layout for both modes: health bars across the top; two players sit side by side, each with
+  // their own buttons on their side and the arena the right way up for both (no upside-down player)
+  hud.append(h('div', { class: 'bars' }, hpBox(F[0], 'l'), mid, hpBox(F[1], 'r')), h('div', { class: 'hud-top-btns' }, pauseBtn));
 
   const controlPad = (f, cls) => {
     const pad = h('div', { class: `controls ${cls}` });
@@ -94,12 +89,20 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     const jb = mk('jump', '🦘', 'Jump', 'orange');
     f.ui.jump = jb;
     sp.append(h('span', { class: 'fill' }));
-    pad.append(mk('punch', '👊', 'Punch', 'red'), mk('kick', '🦶', 'Kick', 'blue'), jb, mk('block', '🛡️', 'Block', 'green'), sp);
+    const punch = mk('punch', '👊', 'Punch', 'red'), kick = mk('kick', '🦶', 'Kick', 'blue'), block = mk('block', '🛡️', 'Block', 'green');
+    // one player: a row with Jump in the middle; two players: 2 x 2 pad with a wide Jump underneath
+    pad.append(...(two ? [punch, kick, block, sp, jb] : [punch, kick, jb, block, sp]));
     f.ui.special = sp;
     return pad;
   };
   if (two) {
     hud.append(controlPad(F[0], 'p1'), controlPad(F[1], 'p2'));
+    // on a phone held upright, suggest turning it sideways (more room for two)
+    if (view.clientHeight > view.clientWidth && Math.min(innerWidth, innerHeight) < 600) {
+      const hint = h('div', { class: 'rotate-hint', 'aria-hidden': 'true' }, '📱', h('span', {}, '↻'));
+      hud.append(hint);
+      later(5000, () => hint.remove());
+    }
   } else {
     const pad = controlPad(F[0], 'p1');
     pad.classList.add('solo'); // one player: all five buttons in a row along the bottom
@@ -140,6 +143,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
       return;
     }
     sfx.jump();
+    f.fig.shieldUntil = 0; // jumping ends a block (the rules already did)
     f.fig.jump(1.05, { dur: JUMP_TIME + 0.12, flip: Math.random() < 0.3, onLand: () => { sfx.land(); arena.fx.dust(f.fig.root.position, 6); } });
   }
 
@@ -265,10 +269,11 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     l.fig.stance = false;
     arena.slowmo(0.22, 0.9);
     arena.zoomPunch(1.2);
+    const fromY = l.fig.airNow || 0; // KO'd in mid-air: fall from there instead of snapping down
     l.fig.stopAll();
     // the flop runs in slowed game time and can outlast the banner: wait for it to land, or
     // getUp() would read an upright pose and the toy would stay lying down afterwards
-    const down = l.fig.flop();
+    const down = l.fig.flop({ fromY });
     l.fig.dizzy(3);
     arena.fx.dust(l.fig.root.position, 12);
     sfx.ko();
@@ -306,7 +311,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     const owner = !two && winnerIdx === 0 ? possessive(ownerName()) : '';
     const text = `${owner ? `${owner} ` : ''}${w.toy.name.toUpperCase()} WINS!`;
     el.dataset.winner = w.toy.id;
-    hud.append(h('div', { class: 'banner small', style: { top: two ? '42%' : '24%' } }, text));
+    hud.append(h('div', { class: 'banner small', style: { top: '24%' } }, text));
     // XP + wins for both toys
     let leveled = false;
     for (const f of F) {
@@ -344,7 +349,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   arena.onFrame = (dt) => {
     if (paused) return;
     if (fighting) clock += dt;
-    for (const f of F) f.ui.jump?.classList.toggle('cooling', fighting && !canJump(f.st, clock)); // dim while it recharges
+    for (const f of F) f.ui.jump?.classList.toggle('cooling', fighting && clock < f.st.jumpReadyAt); // dim only while it recharges
     if (fighting && !two && clock >= cpuNext) {
       const cpu = F[1], kid = F[0];
       const d = cpuDecide(cpu.st, kid.st, { difficulty, now: clock, opponentAttacking: clock < kid.windUntil + 0.2 });
