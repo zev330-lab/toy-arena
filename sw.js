@@ -79,12 +79,17 @@ self.addEventListener('activate', (event) => {
     await self.clients.claim();
     // pages still running the previous version reload into this one (toys live in IndexedDB,
     // untouched); first installs don't reload
-    if (upgraded) {
-      // never await navigate() here: the reload's own request waits for this activation to finish
-      for (const client of await self.clients.matchAll({ type: 'window' })) client.navigate?.(client.url)?.catch(() => {});
-    }
+    // reload pages still running the previous version — once activation has finished (navigate()
+    // is refused while this worker is still "activating", and awaiting it here would deadlock)
+    if (upgraded) setTimeout(reloadOldPages, 400);
   })());
 });
+
+async function reloadOldPages() {
+  for (const client of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) {
+    try { await client.navigate(client.url); } catch (e) { console.info('[toy-arena sw] reload skipped:', e?.message); }
+  }
+}
 
 self.addEventListener('message', (event) => {
   if (event.data?.type !== 'warm') return;
