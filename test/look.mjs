@@ -40,6 +40,7 @@ if (which.includes('battle')) {
   await B('b.advance(1.2);');
   await B("b.special(1); b.advance(0.9);"); await settle(); await shot('battle-5-special');
   await B('b.advance(1.5);');
+  await B("b.F[1].st.hp = 1; b.F[0].st.busyUntil = 0; b.doAttack(0, 'kick'); b.advance(1.1);"); await settle(); await shot('battle-6-ko');
 }
 if (which.includes('play')) {
   await page.evaluate(() => window.__toyArena.go('play', { ids: ['builtin-megabot', 'builtin-kapow'], stage: 'jungle' }));

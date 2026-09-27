@@ -5,7 +5,7 @@ import { h, btn, topbar, modal, toast, UrlBag, holdToConfirm } from '../ui.js';
 import { go, back as navBack, loadToys } from '../app.js';
 import * as db from '../db.js';
 import { POWERS, powerById, levelFromXp, starsForLevel, randomName, XP_PER_LEVEL } from '../core/stats.js';
-import { mount, unmount, startLoop, onResize, disposeScene, maxAniso, getRenderer } from '../engine.js';
+import { mount, unmount, startLoop, onResize, disposeScene, maxAniso, getRenderer, studioLights } from '../engine.js';
 import { buildFigure } from '../mesh.js';
 import { Figure } from '../figure.js';
 import { FX } from '../fx.js';
@@ -17,13 +17,7 @@ export class Turntable {
     this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50);
     this.angle = -0.3; this.vel = intro ? 9 : 0; this.dragging = false;
     const s = this.scene;
-    s.add(new THREE.HemisphereLight(0xffffff, 0x5040a0, 1.5));
-    const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(2.5, 4, 4); key.castShadow = true;
-    key.shadow.mapSize.set(512, 512); key.shadow.camera.left = -2; key.shadow.camera.right = 2; key.shadow.camera.top = 3; key.shadow.camera.bottom = -1;
-    s.add(key);
-    const rim = new THREE.DirectionalLight(0x9fd0ff, 2.2); rim.position.set(-3, 3, -4); s.add(rim);
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(3, 48), new THREE.ShadowMaterial({ opacity: 0.35 }));
-    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; s.add(floor);
+    studioLights(s, { floor: true }); // shared studio environment + key/rim lights + shadow catcher
     this.fx = new FX(s, { max: 60 });
     const canvas = mount(container);
     this.listen = new AbortController(); // shared canvas: remove our drag handlers on dispose

@@ -48,6 +48,7 @@ const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35';
 const WARM = [
   'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js',
   'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.core.js',
+  'https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/environments/RoomEnvironment.js',
   `${MP}/vision_bundle.mjs`,
   `${MP}/wasm/vision_wasm_internal.js`,
   `${MP}/wasm/vision_wasm_internal.wasm`,
