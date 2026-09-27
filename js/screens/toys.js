@@ -44,17 +44,17 @@ export class Turntable {
     this.camera.position.set(0, hgt * 0.62, d);
     this.camera.lookAt(0, hgt * 0.5, 0);
   }
-  /** Tap the toy: it shows off a random move (wave, jump, dance, punch, kick, victory flip). */
+  /** Tap the toy: it shows off a random move (wave, hop, dance, punch, kick, hand up) — all stay in frame. */
   tapMove() {
     const f = this.fig;
     if (!f || f.busy()) return;
     const moves = [
       () => { sfx.boing(); return f.wave(1.3); },
-      () => { sfx.jump(); return f.jump(0.9, { dur: 0.85, flip: Math.random() < 0.35 }); },
+      () => { sfx.jump(); return f.jump(0.45, { dur: 0.75, flip: Math.random() < 0.3 }); },
       () => { sfx.boing(); return f.dance(0.42, Math.floor(Math.random() * 4), 6); },
       () => { sfx.whoosh(); return f.lunge(f.home.x + f.reach.punch, { kind: 'punch', windup: 0.18, strike: 0.1, recover: 0.35 }); },
       () => { sfx.whoosh(); return f.lunge(f.home.x + f.reach.kick, { kind: 'kick', windup: 0.24, strike: 0.12, recover: 0.4 }); },
-      () => { sfx.sparkle(); return f.victory(); },
+      () => { sfx.sparkle(); return f.highFive(0.9); },
     ];
     let i = Math.floor(Math.random() * moves.length);
     if (i === this.lastMove) i = (i + 1) % moves.length;

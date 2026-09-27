@@ -108,20 +108,37 @@ export async function ensureDummies() {
   return dummiesReady;
 }
 
-/** All toys, with missing card thumbnails rendered (and cached) on the way. */
+/** All toys, with missing / out-of-date card thumbnails rendered (and cached) on the way. */
+let thumbJob = null;
 export async function loadToys({ includeHidden = false } = {}) {
   await ensureDummies();
+  // concurrent callers (home shelf + the next screen) share one refresh
+  if (!thumbJob) thumbJob = refreshThumbs().finally(() => { thumbJob = null; });
+  await thumbJob;
+  const toys = await db.allToys();
+  return includeHidden ? toys : toys.filter(t => !t.hidden);
+}
+
+async function refreshThumbs() {
   const toys = await db.allToys();
   // cards are re-rendered once whenever the 3D look changes (THUMB_V); photos and stats are untouched
   const { THUMB_V } = await import('./mesh.js');
   const need = toys.filter(t => !t.thumbBlob || t.thumbV !== THUMB_V);
-  if (need.length) {
-    const { renderThumb } = await import('./engine.js');
-    for (const t of need) {
-      try { t.thumbBlob = await renderThumb(t); t.thumbV = THUMB_V; await db.putToy(t); } catch (e) { console.warn('[toy-arena] thumb', e); }
+  if (!need.length) return;
+  const { renderThumb } = await import('./engine.js');
+  // after an update every card re-renders once: show a friendly wait when it's more than a couple
+  const { busy } = await import('./ui.js');
+  const wait = need.length > 2 && document.getElementById('app') ? busy('Waking up your toys…', { emoji: '🧸' }) : null;
+  try {
+    for (const [i, t] of need.entries()) {
+      try {
+        const thumbBlob = await renderThumb(t);
+        // write only the card fields onto the latest record (never clobber other edits)
+        await db.updateToy(t.id, { thumbBlob, thumbV: THUMB_V });
+      } catch (e) { console.warn('[toy-arena] thumb', e); }
+      wait?.set(null, (i + 1) / need.length);
     }
-  }
-  return includeHidden ? toys : toys.filter(t => !t.hidden);
+  } finally { wait?.close(); }
 }
 
 // ---------- boot ----------
