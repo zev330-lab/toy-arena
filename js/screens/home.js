@@ -79,6 +79,8 @@ export async function openSettings() {
     }
     return box;
   };
+  let bulk = null;
+  import('./bulk.js').then((m) => { bulk = m; }).catch(() => {}); // preload so a tap can open the picker at once
   const toys = await db.allToys();
   const dummies = toys.filter(t => t.builtin);
   // iPhone/iPad keep a separate toy box for the Home Screen icon and for a Safari tab
@@ -100,6 +102,12 @@ export async function openSettings() {
       h('div', { class: 'row' },
         btn({ emoji: '📤', label: 'Save', cls: 'blue small', onClick: () => exportBackup() }),
         btn({ emoji: '📥', label: 'Restore', cls: 'green small', onClick: () => importBackup() })),
+      h('div', { class: 'row' },
+        btn({ emoji: '📚', label: 'Many Photos', cls: 'purple small', aria: 'Add many toys from photos', onClick: () => {
+          // iOS only opens the photo picker inside the tap itself: call straight into the preloaded module
+          const run = (m) => { const p = m.bulkAdd(); document.querySelector('.modal-back')?.close?.(true); return p; };
+          if (bulk) run(bulk); else import('./bulk.js').then(run);
+        } })),
       h('small', {}, 'Save makes one file with every toy — share it with AirDrop or keep it in Files. On the other device, tap Restore and pick the file: it adds the toys and never deletes any. Photos only travel where you send them.'),
       h('small', { class: 'where' }, where)),
     h('small', { style: { textAlign: 'center' } }, `Toy Arena ${APP_VERSION} · no accounts · no tracking`),

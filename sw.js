@@ -1,7 +1,7 @@
 // Toy Arena service worker: precache the app shell, runtime-cache CDN libraries,
 // fonts and the cutout model so everything works offline after the first visit.
 
-const VERSION = 'v2.0.0';
+const VERSION = 'v2.1.0';
 const SHELL_CACHE = `toy-arena-shell-${VERSION}`;
 const RUNTIME_CACHE = 'toy-arena-runtime-v1';
 
@@ -40,6 +40,7 @@ const SHELL = [
   'js/core/stats.js',
   'js/screens/add.js',
   'js/screens/bones.js',
+  'js/screens/bulk.js',
   'js/screens/home.js',
   'js/screens/pick.js',
   'js/screens/toys.js',
@@ -61,17 +62,27 @@ self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_CACHE);
     await cache.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })));
-    // No skipWaiting(): a new version takes over on the next launch, so a running game never
-    // mixes old and new modules.
+    // Take over right away. Waiting for every old page to close never happened on iPads, where
+    // the home-screen app stays suspended for days; old pages are reloaded on activate instead,
+    // so no page ever mixes old and new modules.
+    await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
+    let upgraded = false;
     for (const key of await caches.keys()) {
-      if (key.startsWith('toy-arena-shell-') && key !== SHELL_CACHE) await caches.delete(key);
+      if (key.startsWith('toy-arena-shell-') && key !== SHELL_CACHE) { upgraded = true; await caches.delete(key); }
     }
     await self.clients.claim();
+    // pages still running the previous version reload into this one (toys live in IndexedDB,
+    // untouched); first installs don't reload
+    if (upgraded) {
+      for (const client of await self.clients.matchAll({ type: 'window' })) {
+        try { await client.navigate(client.url); } catch { /* Safari < 16: it updates on the next launch */ }
+      }
+    }
   })());
 });
 

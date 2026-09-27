@@ -85,12 +85,13 @@ export function toast(msg) {
 }
 
 /** Full-screen "working on it" overlay with a fun animation. */
-export function busy(label, { emoji = '✂️' } = {}) {
+export function busy(label, { emoji = '✂️', onStop } = {}) {
   const lbl = h('div', { class: 'label' }, label);
   const bar = h('i');
   const prog = h('div', { class: 'progress', style: { visibility: 'hidden' } }, bar);
+  const stop = onStop ? btn({ emoji: '✋', label: 'Stop', cls: 'white small', onClick: () => { stop.disabled = true; onStop(); } }) : null;
   const el = h('div', { class: 'busy', role: 'alert', 'aria-live': 'polite' },
-    h('div', { class: 'scissors' }, emoji), lbl, h('div', { class: 'sparkles' }, '✨⭐✨'), prog);
+    h('div', { class: 'scissors' }, emoji), lbl, h('div', { class: 'sparkles' }, '✨⭐✨'), prog, stop);
   document.getElementById('app').append(el);
   return {
     set(text, pct) {

@@ -56,7 +56,7 @@ export async function playScreen(el, { ids, stage }) {
   const pairs = () => (n >= 4 ? [[figs[0], figs[1]], [figs[2], figs[3]]] : [[figs[0], figs[1]]]);
   const cheerOthers = () => { for (const f of figs.slice(n >= 4 ? 4 : 2)) { f.jump(0.6, { dur: 0.6 }); say(f, 'YAY!'); } };
   const home = figs.map(f => f.home.clone());
-  const goHome = () => Promise.all(figs.map((f, i) => (f.home.distanceTo(home[i]) > 0.05 ? f.hopTo(home[i].x, home[i].z) : null))).then(faceCentre);
+  const goHome = () => Promise.all(figs.map((f, i) => (f.home.distanceTo(home[i]) > 0.05 ? f.hopTo(home[i].x, home[i].z, { speed: 2.2 }) : null))).then(faceCentre);
   const say = (f, word, color) => powBubble(fxLayer, arena, f.headPos, word, { color });
 
   const ACTIONS = {
@@ -227,6 +227,7 @@ export async function playScreen(el, { ids, stage }) {
   async function run(id, b) {
     if (busy || !alive) return;
     busy = id;
+    await entered; // an early tap waits for the toys to finish walking in (else the walk-in's end would snap them back)
     for (const f of figs) f.stopTagged('fidget'); // drop idle fidgets so they don't mix into the action
     el.dataset.busy = id;
     b.classList.add('busy-act');
@@ -291,7 +292,7 @@ export async function playScreen(el, { ids, stage }) {
     freeze() { arena.timeScale = 0; },
     advance(sec, step = 1 / 60) { for (let t = 0; t < sec; t += step) { for (const f of figs) f.update(step); arena.fx.update(step); arena.onFrame?.(step, step); } } };
   // intro hop-in
-  figs.forEach((f, i) => { const hx = f.home.x; f.setHome(hx, 4); f.hopTo(hx, home[i].z, { onLand: () => sfx.step() }); });
+  const entered = Promise.all(figs.map((f, i) => { const hx = f.home.x; f.setHome(hx, 4); return f.hopTo(hx, home[i].z, { onLand: () => sfx.step() }); }));
   await sleep(200);
   banner(hud, 'LET’S PLAY!', { ms: 900, small: true });
 

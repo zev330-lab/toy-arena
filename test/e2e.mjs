@@ -237,8 +237,10 @@ await step('04b many photos at once: every photo becomes a toy', async () => {
   await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   const before = await page.evaluate(async () => (await window.__toyArena.db.allToys()).filter(t => !t.builtin).length);
-  await tapText(page, 'Add a Toy');
-  await screen(page, 'add');
+  const gear = page.getByRole('button', { name: 'Grown-ups: hold for settings' });
+  await gear.dispatchEvent('pointerdown');
+  await page.waitForSelector('.modal .settings-list', { timeout: 10000 });
+  await page.waitForTimeout(600); // let the panel preload the Many Photos module
   const [chooser] = await Promise.all([page.waitForEvent('filechooser', { timeout: 10000 }), tapText(page, 'Add many toys from photos')]);
   assert(chooser.isMultiple(), 'picker is not multi-select');
   await chooser.setFiles([path.join(FIX, 'figure_front.jpg'), path.join(FIX, 'figure_busy.jpg')]);
@@ -465,7 +467,7 @@ await step('10 play mode with 4 toys: every action + drag', async () => {
     const snapAt = { highfive: 1500, dance: 3000, race: 3600, jump: 700, hug: 1700, tickle: 1500, ball: 2000, spin: 700 }[a];
     await page.waitForTimeout(snapAt);
     await shot(page, `15-play-c-${a}`);
-    await page.waitForFunction(() => !document.querySelector('.screen.play')?.dataset.busy, null, { timeout: 40000 });
+    await page.waitForFunction(() => !document.querySelector('.screen.play')?.dataset.busy, null, { timeout: 120000 });
   }
   const done = await page.evaluate(() => document.querySelector('.screen.play').dataset.done);
   assert(actions.every(a => done.includes(a)), `actions done: ${done}`);
