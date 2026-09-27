@@ -31,7 +31,11 @@ export class Turntable {
       s.add(this.fig.root);
       this.frameCam();
       if (intro) { // the new toy flips in, then waves hello
-        this.fig.jump(1.2, { dur: 0.9, flip: true }).then(() => { if (!this.disposed) this.fig.wave(1.6); });
+        this.fig.jump(1.2, { dur: 0.9, flip: true }).then(() => {
+          if (this.disposed) return;
+          this.introWave = true;
+          this.fig.wave(1.6).then(() => { this.introWave = false; });
+        });
         this.fx.stars(new THREE.Vector3(0, 1.2, 0), 10);
       }
       startLoop((dt) => this.frame(dt));
@@ -50,7 +54,9 @@ export class Turntable {
   /** Tap the toy: it shows off a random move (wave, hop, dance, punch, kick, hand up) — all stay in frame. */
   tapMove() {
     const f = this.fig;
-    if (!f || f.busy()) return;
+    if (!f) return;
+    if (this.introWave) { this.introWave = false; f.stopAll(); } // a tap may cut the hello wave short
+    if (f.busy()) return;
     const moves = [
       () => { sfx.boing(); return f.wave(1.3); },
       () => { sfx.jump(); return f.jump(0.45, { dur: 0.75, flip: Math.random() < 0.3 }); },

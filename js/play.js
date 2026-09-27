@@ -227,6 +227,7 @@ export async function playScreen(el, { ids, stage }) {
   async function run(id, b) {
     if (busy || !alive) return;
     busy = id;
+    for (const f of figs) f.stopTagged('fidget'); // drop idle fidgets so they don't mix into the action
     el.dataset.busy = id;
     b.classList.add('busy-act');
     try { await ACTIONS[id](); } catch (e) { console.error('[toy-arena] play action', id, e); }
@@ -255,6 +256,7 @@ export async function playScreen(el, { ids, stage }) {
     drag = { f, target: null };
     canvas.setPointerCapture?.(e.pointerId);
     sfx.pop();
+    f.stopTagged('fidget'); // a fidget must not keep the toy from following the finger
     f.jump(0.3, { dur: 0.3 });
   }, opt);
   canvas.addEventListener('pointermove', (e) => {
@@ -282,6 +284,7 @@ export async function playScreen(el, { ids, stage }) {
     if (pick < 0.4) f.wave(1.2);
     else if (pick < 0.7) f.jump(0.35, { dur: 0.5 });
     else f.play(1.4, (p, pose) => { f.turn(pose, 'neck', 0, Math.sin(p * Math.PI * 2) * 0.5, 0); f.turn(pose, 'chest', 0, Math.sin(p * Math.PI * 2) * 0.15, 0); });
+    f.tagLast('fidget');
   }, 2600);
 
   el.__play = { run, figs, ACTIONS, screenOf: (i) => arena.project(figs[i].chestPos),

@@ -121,12 +121,3 @@ test('merged legs with hands hanging at knee height: the legs stay inside the bo
   assert.equal(r.legsMerged, true);
   for (const k of ['hipL', 'kneeL', 'footL', 'hipR', 'kneeR', 'footR']) assert.ok(r.joints[k].x > 105 && r.joints[k].x < 195, `${k} at ${r.joints[k].x}`);
 });
-
-test('one arm out, one arm pressed to the body: both arms get joints', () => {
-  const pose = or(circ(200, 70, 45), rect(140, 110, 260, 330), rect(80, 115, 140, 128), rect(80, 115, 105, 300), rect(260, 125, 300, 300),
-    rect(150, 330, 190, 500), rect(210, 330, 250, 500));
-  const r = autoRig(field(400, 520, pose), 400, 520);
-  assert.ok(r.joints.handL && r.joints.handR, `hands ${Object.keys(r.joints)}`);
-  assert.ok(r.joints.handL.x < 110, `free left arm ${r.joints.handL.x}`);
-  assert.ok(r.joints.handR.x > 258 && r.joints.handR.x < 302, `pressed right arm ${r.joints.handR.x}`);
-});

@@ -110,7 +110,7 @@ export async function bonesScreen(el, { id }) {
   wrap.addEventListener('pointerup', end);
   wrap.addEventListener('pointercancel', end);
 
-  const hasArms = () => !!rig.joints.shoulderL;
+  const hasArms = () => !!(rig.joints.shoulderL || rig.joints.shoulderR);
   const hasLegs = () => !!rig.joints.hipL;
   const armsBtn = btn({ emoji: '🦾', label: 'Arms', cls: 'small white', onClick: () => {
     if (hasArms()) drop(rig, ARM_J); else addArms(rig);
@@ -135,7 +135,7 @@ export async function bonesScreen(el, { id }) {
         if (b.disabled) return; // one save, one step back
         b.disabled = true;
         // keep the torso anchors in step with a moved chest (they only matter for pressed-in arms)
-        if (!hasArms()) drop(rig, ['torsoL', 'torsoR']);
+        for (const sd of ['L', 'R']) if (!rig.joints[`shoulder${sd}`]) drop(rig, [`torso${sd}`]);
         try {
           await db.updateToy(toy.id, { rig: { ...rig, v: RIG_VERSION, auto: false, w: W, h: H } });
         } catch (err) { b.disabled = false; toast('😵 Could not save'); return; }

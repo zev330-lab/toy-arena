@@ -321,22 +321,9 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   }
 
   // ---------- frame loop ----------
-  // boxer footwork: idle fighters shuffle in and out a little (never crossing or bumping)
-  const footwork = F.map(() => ({ next: 1.2 + Math.random() }));
-  const lane = (i) => (i === 0 ? [-X - 0.4, -X + 0.22] : [X - 0.22, X + 0.4]);
-  const shuffle = (i) => {
-    const f = F[i], fw = footwork[i];
-    if (clock < fw.next || f.fig.busy() || !canAct(f.st, clock)) return;
-    fw.next = clock + 1.3 + Math.random() * 1.4;
-    const [lo, hi] = lane(i);
-    const x = f.fig.home.x;
-    let nx = x + (Math.random() < 0.5 ? -1 : 1) * (0.12 + Math.random() * 0.12);
-    nx = Math.min(hi, Math.max(lo, nx));
-    if (Math.abs(nx - x) > 0.05) f.fig.hopTo(nx, f.fig.home.z, { speed: 0.9 });
-  };
   arena.onFrame = (dt) => {
     if (paused) return;
-    if (fighting) { clock += dt; shuffle(0); shuffle(1); }
+    if (fighting) clock += dt;
     if (fighting && !two && clock >= cpuNext) {
       const cpu = F[1], kid = F[0];
       const d = cpuDecide(cpu.st, kid.st, { difficulty, now: clock, opponentAttacking: clock < kid.windUntil + 0.2 });

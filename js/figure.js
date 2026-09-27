@@ -119,6 +119,11 @@ export class Figure {
     });
   }
   stopAll() { for (const a of this.actions) a.resolve(); this.actions = []; }
+  /** Label the animation just queued (e.g. 'fidget') so it can be dropped on its own. */
+  tagLast(tag) { const a = this.actions[this.actions.length - 1]; if (a) a.tag = tag; }
+  stopTagged(tag) {
+    this.actions = this.actions.filter((a) => { if (a.tag !== tag) return true; a.resolve(); return false; });
+  }
   busy() { return this.actions.length > 0; }
 
   // ---------- pose helpers (all no-ops when the toy has no such bone) ----------
