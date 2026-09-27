@@ -100,6 +100,11 @@ export class Figure {
     const hp = this.bones.hips ? this.bonePos('hips', this.height * 0.45) : c;
     return c.lerp(hp, 0.3).add(new THREE.Vector3(0, 0, 0.1));
   }
+  /** Extra points the camera should keep in frame: the head of a toy lying flat after a KO. */
+  framePoints() {
+    if (Math.abs(this.hold.lean) < 0.5 || !this.bones.head) return [];
+    return [this.bones.head.getWorldPosition(new THREE.Vector3()).setY(0)];
+  }
   /** Ground contact for contact shadows: { x, z, air, radius }. */
   groundInfo() {
     return { x: this.root.position.x, z: this.root.position.z, air: Math.max(0, this.airNow || 0), radius: Math.max(0.22, this.built.width * 0.36) };

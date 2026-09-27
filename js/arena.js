@@ -772,7 +772,7 @@ export class Arena {
     const figs = this.figures.filter(f => f.root.visible);
     const box = new THREE.Box3();
     if (this.focusOverride) box.setFromPoints(this.focusOverride);
-    else if (figs.length) for (const f of figs) box.expandByPoint(f.root.position);
+    else if (figs.length) for (const f of figs) { box.expandByPoint(f.root.position); for (const p of f.framePoints?.() || []) box.expandByPoint(p); }
     else box.setFromCenterAndSize(new THREE.Vector3(), new THREE.Vector3(1, 1, 1));
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
