@@ -444,8 +444,9 @@ export function autoRig(field, w, h, { iso = 127, side = 128 } = {}) {
       put(`knee${side}`, atLen(rest, arcLen(rest) * 0.5), `hip${side}`);
       put(`foot${side}`, foot, `knee${side}`);
     }
-  } else if (arms.L && arms.R && bb.h > bb.w * 1.25) {
-    // looks like a person whose legs merged in the photo (or a long coat): split the lower body
+  } else if (((arms.L && arms.R) || rig.armsMerged) && bb.h > bb.w * 1.1) {
+    // looks like a person whose legs merged in the photo, feet touching (a loop), or a long coat:
+    // split the lower body
     rig.kind = 'humanoid';
     rig.legsMerged = true;
     synthLegs(rig, mask, W, H, g, bb);
@@ -455,6 +456,7 @@ export function autoRig(field, w, h, { iso = 127, side = 128 } = {}) {
   apps.forEach((b, i) => {
     const path = branchPath(b);
     if (path.length < 4) return;
+    if (rig.legsMerged && Y(b.tip) > Y(pelvis)) return; // pieces of the split legs, not a tail
     const ay = Y(b.attach);
     const parent = b.top ? 'head' : ay <= neckY ? 'neck' : ay <= chestY + 1 ? 'chest' : 'hips';
     // the base joint sits where the branch leaves the body (like a shoulder), so the body never wiggles
@@ -484,10 +486,31 @@ function templateRig(rig, bb) {
 /** Split a merged lower body into two legs using the silhouette's width at knee height. */
 function synthLegs(rig, mask, W, H, g, bb) {
   const J = rig.joints;
+  const kneeY0 = Math.round(bb.maxY - bb.h * 0.22), hipY0 = Math.round(bb.maxY - bb.h * 0.42);
+  // centre line of the lower body = mean x of body pixels between hip and knee height
+  let sx = 0, n = 0;
+  for (let y = hipY0; y <= kneeY0; y++) for (let x = 0; x < W; x++) if (mask[y * W + x]) { sx += x; n++; }
+  const c0 = Math.round(n ? sx / n : (bb.minX + bb.maxX) / 2);
+  /** The run of body pixels on row y that contains (or is nearest to) the body's centre line —
+   *  NOT the whole row, which would include hands/claws hanging beside the legs. */
+  const runFrom = (y, c) => {
+    let a = c, b = c;
+    while (a > 0 && mask[y * W + a - 1]) a--;
+    while (b < W - 1 && mask[y * W + b + 1]) b++;
+    return [a, b];
+  };
   const rowRun = (y) => {
-    let a = -1, b = -1;
-    for (let x = 0; x < W; x++) if (mask[y * W + x]) { if (a < 0) a = x; b = x; }
-    return a < 0 ? null : [a, b];
+    if (mask[y * W + c0]) return runFrom(y, c0);
+    // the centre line is in the gap between two legs: take the nearest run on each side
+    const lim = Math.round(bb.w * 0.3);
+    let l = -1, r = -1;
+    for (let d = 1; d <= lim && (l < 0 || r < 0); d++) {
+      if (l < 0 && c0 - d >= 0 && mask[y * W + c0 - d]) l = c0 - d;
+      if (r < 0 && c0 + d < W && mask[y * W + c0 + d]) r = c0 + d;
+    }
+    if (l >= 0 && r >= 0) return [runFrom(y, l)[0], runFrom(y, r)[1]];
+    const c = l >= 0 ? l : r;
+    return c >= 0 ? runFrom(y, c) : null;
   };
   const kneeY = Math.round(bb.maxY - bb.h * 0.22), hipY = Math.round(bb.maxY - bb.h * 0.42);
   const rk = rowRun(kneeY) || [bb.minX, bb.maxX];

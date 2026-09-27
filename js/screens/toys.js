@@ -50,10 +50,29 @@ export class Turntable {
     this.camera.position.set(0, hgt * 0.62, d);
     this.camera.lookAt(0, hgt * 0.5, 0);
   }
+  /** Tap the toy: it shows off a random move (wave, jump, dance, punch, kick, victory flip). */
+  tapMove() {
+    const f = this.fig;
+    if (!f || f.busy()) return;
+    const moves = [
+      () => { sfx.boing(); return f.wave(1.3); },
+      () => { sfx.jump(); return f.jump(0.9, { dur: 0.85, flip: Math.random() < 0.35 }); },
+      () => { sfx.boing(); return f.dance(0.42, Math.floor(Math.random() * 4), 6); },
+      () => { sfx.whoosh(); return f.lunge(f.home.x + f.reach.punch, { kind: 'punch', windup: 0.18, strike: 0.1, recover: 0.35 }); },
+      () => { sfx.whoosh(); return f.lunge(f.home.x + f.reach.kick, { kind: 'kick', windup: 0.24, strike: 0.12, recover: 0.4 }); },
+      () => { sfx.sparkle(); return f.victory(); },
+    ];
+    let i = Math.floor(Math.random() * moves.length);
+    if (i === this.lastMove) i = (i + 1) % moves.length;
+    this.lastMove = i;
+    moves[i]();
+    this.onTap?.();
+  }
   bindDrag(canvas) {
-    let lastX = 0, lastT = 0;
+    let lastX = 0, lastT = 0, downX = 0, downT = 0;
     const opt = { signal: this.listen.signal };
-    canvas.addEventListener('pointerdown', (e) => { this.dragging = true; lastX = e.clientX; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); }, opt);
+    canvas.addEventListener('pointerdown', (e) => { this.dragging = true; lastX = downX = e.clientX; lastT = downT = performance.now(); canvas.setPointerCapture?.(e.pointerId); }, opt);
+    canvas.addEventListener('pointerup', (e) => { if (Math.abs(e.clientX - downX) < 10 && performance.now() - downT < 400) this.tapMove(); }, opt);
     canvas.addEventListener('pointermove', (e) => {
       if (!this.dragging) return;
       const now = performance.now();
@@ -186,6 +205,9 @@ export async function toyScreen(el, { id }) {
   );
   if (toy.builtin) el.querySelector('.actions').style.gridTemplateColumns = 'repeat(3, 1fr)';
   const tt = new Turntable(view, toy);
+  const tapHint = h('div', { class: 'tap-hint', 'aria-hidden': 'true' }, '👆');
+  view.append(tapHint);
+  tt.onTap = () => tapHint.remove();
   tt.ready.then(async () => {
     if (!toy.thumbBlob && !tt.disposed) { const { renderThumb } = await import('../engine.js'); const { THUMB_V } = await import('../mesh.js'); toy.thumbBlob = await renderThumb(toy); toy.thumbV = THUMB_V; await db.putToy(toy); }
   }).catch((e) => console.warn('[toy-arena] turntable', e));

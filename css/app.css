@@ -416,3 +416,8 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 
 .slots.four { gap: 8px; }
 .slots.four .slot { width: 78px; height: 94px; font-size: 32px; }
+
+/* toy detail: tap the 3D toy to make it move */
+.tap-hint { position: absolute; right: 16px; bottom: 14px; font-size: 38px; pointer-events: none; z-index: 2;
+  filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); animation: tapHint 1.3s ease-in-out infinite; }
+@keyframes tapHint { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.12); } }

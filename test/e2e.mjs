@@ -263,6 +263,12 @@ await step('06 collection persists across reload + detail turntable', async () =
   await page.mouse.up();
   await page.waitForTimeout(700);
   await shot(page, '09-toy-detail-spun');
+  // tap the toy: it does a move and the 👆 hint goes away
+  assert(await page.locator('.detail .tap-hint').count() === 1, 'tap hint missing');
+  await page.touchscreen.tap(vp.x + vp.width / 2, vp.y + vp.height / 2);
+  await page.waitForTimeout(450);
+  assert(await page.locator('.detail .tap-hint').count() === 0, 'tapping the toy did nothing');
+  await shot(page, '09b-toy-detail-tap-move');
   await tapText(page, 'Name');
   await page.waitForSelector('.modal');
   await page.waitForTimeout(500);
@@ -289,6 +295,32 @@ await step('06 collection persists across reload + detail turntable', async () =
   assert(after && after.id === before.id && after.size !== before.size && !after.back, 'retake did not replace the photo');
   await page.waitForTimeout(1200);
   await shot(page, '11b-after-retake');
+});
+
+await step('06b app update keeps old toys (v1 records) and retires the old dummies', async () => {
+  // turn Claw Crusher back into a v1 record (no skeleton, old card) and plant a retired v1 dummy
+  const before = await page.evaluate(async () => {
+    const db = window.__toyArena.db;
+    const t = (await db.allToys()).find(x => x.name === 'Claw Crusher');
+    delete t.rig; delete t.thumbV;
+    t.wins = 3; t.xp = 140;
+    await db.putToy(t);
+    await db.putToy({ id: 'builtin-robo', name: 'Robo Buddy', builtin: true, hidden: false, power: 'laser', stats: { power: 50, speed: 50, defense: 50 }, frontBlob: t.frontBlob, width: t.width, height: t.height, createdAt: 0, wins: 0, losses: 0, xp: 0 });
+    return { id: t.id, front: t.frontBlob.size };
+  });
+  await page.goto(`${BASE}?nosw&mute=1`);
+  await ready(page);
+  await tapText(page, 'My Toys');
+  await screen(page, 'toys');
+  await page.waitForFunction(() => document.querySelectorAll('.toy-card .nm').length >= 4, null, { timeout: 60000 });
+  const names = await page.locator('.toy-card .nm').allInnerTexts();
+  facts.afterUpdate = names;
+  assert(names.includes('Claw Crusher') && names.includes('Blaze Tiger'), `own toys: ${names.join(', ')}`);
+  assert(!names.includes('Robo Buddy') && !names.includes('Blobby Monster'), 'retired dummy still listed');
+  assert(names.includes('Mega Bot') && names.includes('Kapow Kid'), `new dummies: ${names.join(', ')}`);
+  const after = await page.evaluate(async (id) => { const x = (await window.__toyArena.db.allToys()).find(y => y.id === id); return { thumbV: x.thumbV, wins: x.wins, xp: x.xp, front: x.frontBlob.size }; }, before.id);
+  assert(after.thumbV === 2 && after.wins === 3 && after.xp === 140 && after.front === before.front, `old toy after update ${JSON.stringify(after)}`);
+  await shot(page, '07b-collection-after-update');
 });
 
 async function runBattle(prefix, { players = '1p', stage = 'city', maxMs = 240000, fighters = ['Claw Crusher', 'Mega Bot'] } = {}) {

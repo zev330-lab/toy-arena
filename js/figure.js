@@ -521,17 +521,6 @@ export class Figure {
     });
   }
 
-  /** Stand-still hero pose for cards and the reveal. */
-  heroPose() {
-    this.hold.limbs = (pose) => {
-      this.arm(pose, 'L', [-30 * D, 25 * D], [40 * D, 30 * D], 0.9);
-      this.arm(pose, 'R', [-72 * D, 5 * D], [-60 * D, 20 * D], 0.9);
-      this.leg(pose, 'L', [-82 * D, 6 * D], [-92 * D, 0], 0.8);
-      this.leg(pose, 'R', [-80 * D, -4 * D], [-90 * D, 0], 0.8);
-      this.turn(pose, 'chest', 0.04, 0.15, 0);
-    };
-  }
-
   bow() {
     return this.play(1.2, (p, pose) => {
       const k = p < 0.35 ? ease.out(p / 0.35) : p > 0.7 ? 1 - ease.inOut((p - 0.7) / 0.3) : 1;

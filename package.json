@@ -1,6 +1,6 @@
 {
   "name": "toy-arena",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Photograph your action figures, turn them into 3D toys, and battle or play in a 3D arena. Static PWA, no build step.",

@@ -1,7 +1,7 @@
 // Toy Arena service worker: precache the app shell, runtime-cache CDN libraries,
 // fonts and the cutout model so everything works offline after the first visit.
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v2.0.0';
 const SHELL_CACHE = `toy-arena-shell-${VERSION}`;
 const RUNTIME_CACHE = 'toy-arena-runtime-v1';
 

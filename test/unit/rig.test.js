@@ -104,3 +104,20 @@ test('arms pressed against the body (no gap) are split off the sides', () => {
   assert.ok(r.joints.handL.x < 140 && r.joints.handR.x > 260, `hands ${r.joints.handL.x} ${r.joints.handR.x}`);
   assert.ok(r.joints.torsoL && r.joints.torsoR, 'torso anchors');
 });
+
+test('feet touching (the legs enclose a gap) still gives two legs', () => {
+  const together = or(circ(150, 60, 40), rect(145, 95, 155, 110), rect(100, 110, 200, 270), rect(60, 115, 100, 125), rect(200, 115, 240, 125),
+    rect(60, 115, 85, 280), rect(215, 115, 240, 280), rect(105, 270, 145, 450), rect(155, 270, 195, 450), rect(95, 440, 205, 480));
+  const r = autoRig(field(300, 500, together), 300, 500);
+  assert.equal(r.kind, 'humanoid');
+  assert.ok(r.joints.kneeL && r.joints.kneeR, 'has knees');
+  assert.ok(r.joints.footL.x < 150 && r.joints.footR.x > 150);
+});
+
+test('merged legs with hands hanging at knee height: the legs stay inside the body', () => {
+  const claws = or(circ(150, 60, 40), rect(145, 95, 155, 110), rect(100, 110, 200, 270), rect(60, 115, 100, 125), rect(200, 115, 240, 125),
+    rect(60, 115, 85, 400), rect(215, 115, 240, 400), rect(105, 270, 195, 480));
+  const r = autoRig(field(300, 500, claws), 300, 500);
+  assert.equal(r.legsMerged, true);
+  for (const k of ['hipL', 'kneeL', 'footL', 'hipR', 'kneeR', 'footR']) assert.ok(r.joints[k].x > 105 && r.joints[k].x < 195, `${k} at ${r.joints[k].x}`);
+});

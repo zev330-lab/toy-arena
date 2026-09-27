@@ -92,11 +92,11 @@ export async function openSettings() {
       seg([{ emoji: '👀', label: 'Show', value: false }, { emoji: '🙈', label: 'Hide', value: true }], !!dummiesHidden, async (v) => {
         for (const d of dummies) await db.updateToy(d.id, { hidden: v });
       })),
-    h('div', { class: 'sec' }, h('h4', {}, '💾 Backup'),
+    h('div', { class: 'sec' }, h('h4', {}, '💾 Backup · move toys to another iPad / iPhone'),
       h('div', { class: 'row' },
         btn({ emoji: '📤', label: 'Save', cls: 'blue small', onClick: () => exportBackup() }),
         btn({ emoji: '📥', label: 'Restore', cls: 'green small', onClick: () => importBackup() })),
-      h('small', {}, 'Photos never leave this device. A backup is one file you can keep in Files or iCloud Drive.')),
+      h('small', {}, 'Save makes one file with every toy — share it with AirDrop or keep it in Files. On the other device, tap Restore and pick the file: it adds the toys and never deletes any. Photos only travel where you send them.')),
     h('small', { style: { textAlign: 'center' } }, `Toy Arena ${APP_VERSION} · no accounts · no tracking`),
   );
   await modal({ emoji: '⚙️', title: 'Grown-ups', body, actions: [{ emoji: '✅', label: 'Done', cls: 'green', value: true }] });
@@ -155,7 +155,7 @@ export function importBackup() {
       await db.putMany(toys);
       if (on && !ownerName()) db.saveSettings({ ownerName: on });
       b.close();
-      toast(`📥 ${toys.length} toy${toys.length === 1 ? '' : 's'} restored!`);
+      toast(`📥 ${toys.length} toy${toys.length === 1 ? '' : 's'} restored! (none deleted)`);
       sfx.fanfare();
     } catch (e) {
       b.close();

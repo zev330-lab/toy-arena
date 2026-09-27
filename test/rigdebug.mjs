@@ -13,6 +13,25 @@ await page.addInitScript(() => { window.AudioContext = undefined; localStorage.s
 await page.goto(`${BASE}?nosw&mute=1`);
 await page.waitForFunction(() => window.__toyArenaReady === true, null, { timeout: 60000 });
 await page.evaluate(() => window.__toyArena.loadToys());
+// photos (fixtures + git-ignored test/photos) go through the real cutout first
+const HERE = path.dirname(new URL(import.meta.url).pathname);
+const photoFiles = [
+  ...fs.readdirSync(path.join(HERE, 'fixtures')).filter(f => /^figure_(front|busy)\.jpg$/.test(f)).map(f => `test/fixtures/${f}`),
+  ...(fs.existsSync(path.join(HERE, 'photos')) ? fs.readdirSync(path.join(HERE, 'photos')).filter(f => /\.(jpe?g|png|webp)$/i.test(f)).map(f => `test/photos/${f}`) : []),
+];
+await page.evaluate(async (files) => {
+  const { fileToCanvas } = await import('./js/capture.js');
+  const { autoCutout } = await import('./js/segment.js');
+  const { makeCutout } = await import('./js/cutout.js');
+  const { canvasToBlob } = await import('./js/capture.js');
+  for (const f of files) {
+    const blob = await (await fetch(f)).blob();
+    const photo = await fileToCanvas(blob, 1024);
+    const ses = await autoCutout(photo);
+    const cut = makeCutout(ses.photo, ses.mask, ses.w, ses.h);
+    await window.__toyArena.db.putToy({ id: `photo:${f}`, name: f.split('/').pop(), power: 'strength', stats: { power: 50, speed: 50, defense: 50 }, width: cut.width, height: cut.height, frontBlob: await canvasToBlob(cut.canvas), createdAt: Date.now(), method: ses.method });
+  }
+}, photoFiles);
 const out = await page.evaluate(async (ids) => {
   const { autoRig, jointOrder } = await import('./js/core/rig.js');
   const { buildPuppetMesh } = await import('./js/core/puppet.js');
@@ -24,8 +43,11 @@ const out = await page.evaluate(async (ids) => {
     const W = c.width, H = c.height;
     const px = c.getContext('2d').getImageData(0, 0, W, H).data;
     const alpha = new Uint8Array(W * H); for (let i = 0; i < alpha.length; i++) alpha[i] = px[i * 4 + 3];
+    const t0 = performance.now();
     const rig = autoRig(alpha, W, H);
+    const t1 = performance.now();
     const pm = buildPuppetMesh(alpha, W, H, rig);
+    const t2 = performance.now();
     const o = document.createElement('canvas'); o.width = W * 2; o.height = H;
     const g = o.getContext('2d');
     g.fillStyle = '#222'; g.fillRect(0, 0, W * 2, H);
@@ -44,12 +66,12 @@ const out = await page.evaluate(async (ids) => {
       for (const [k, j] of Object.entries(rig.joints)) { g.fillStyle = k.startsWith('app') ? '#0ff' : k.startsWith('torso') ? '#888' : '#f00'; g.beginPath(); g.arc(off + j.x, j.y, 5, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = '11px sans-serif'; g.fillText(k, off + j.x + 6, j.y - 4); }
     }
     const legend = jointOrder(rig).map((n, i) => `${i}:${n}`).join(' ');
-    res.push({ id: t.id, name: t.name, kind: rig.kind, armsMerged: !!rig.armsMerged, legsMerged: !!rig.legsMerged, joints: Object.keys(rig.joints).length, png: o.toDataURL(), legend });
+    res.push({ id: t.id, name: t.name, kind: rig.kind, armsMerged: !!rig.armsMerged, legsMerged: !!rig.legsMerged, joints: Object.keys(rig.joints).length, png: o.toDataURL(), legend, ms: `rig ${(t1 - t0) | 0}ms mesh ${(t2 - t1) | 0}ms`, verts: pm.boundary.length, method: t.method });
   }
   return res;
 }, IDS);
 for (const r of out) {
-  fs.writeFileSync(path.join(OUT, `${r.id}.png`), Buffer.from(r.png.split(',')[1], 'base64'));
-  console.log(r.id, r.name, r.kind, `arms merged ${r.armsMerged} legs merged ${r.legsMerged} joints ${r.joints}`);
+  fs.writeFileSync(path.join(OUT, `${r.id.replace(/[^a-z0-9._-]+/gi, '_')}.png`), Buffer.from(r.png.split(',')[1], 'base64'));
+  console.log(r.id, r.name, r.kind, `arms merged ${r.armsMerged} legs merged ${r.legsMerged} joints ${r.joints}`, r.ms, `${r.verts} verts`, r.method || '');
 }
 await browser.close();

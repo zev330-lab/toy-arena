@@ -16,7 +16,7 @@ const screens = {
   play: () => import('./play.js').then(m => m.playScreen),
 };
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '2.0.0';
 
 let current = null; // { name, params, el, cleanup }
 const stack = [];
