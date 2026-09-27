@@ -81,6 +81,10 @@ export async function openSettings() {
   };
   const toys = await db.allToys();
   const dummies = toys.filter(t => t.builtin);
+  // iPhone/iPad keep a separate toy box for the Home Screen icon and for a Safari tab
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const own = toys.filter(t => !t.builtin).length;
+  const where = `📍 This copy: ${standalone ? 'the Home Screen app' : 'a browser tab'} — ${own} toy${own === 1 ? '' : 's'} here. The Home Screen icon and Safari keep separate toy boxes: if toys are missing, open the game the other way.`;
   const dummiesHidden = dummies.length && dummies.every(t => t.hidden);
   const body = h('div', { class: 'settings-list' },
     h('div', { class: 'sec' }, h('h4', {}, '🦸 Toy Master name'), name, h('small', {}, 'Shows on the title. Leave empty for “Toy Arena”.')),
@@ -96,7 +100,8 @@ export async function openSettings() {
       h('div', { class: 'row' },
         btn({ emoji: '📤', label: 'Save', cls: 'blue small', onClick: () => exportBackup() }),
         btn({ emoji: '📥', label: 'Restore', cls: 'green small', onClick: () => importBackup() })),
-      h('small', {}, 'Save makes one file with every toy — share it with AirDrop or keep it in Files. On the other device, tap Restore and pick the file: it adds the toys and never deletes any. Photos only travel where you send them.')),
+      h('small', {}, 'Save makes one file with every toy — share it with AirDrop or keep it in Files. On the other device, tap Restore and pick the file: it adds the toys and never deletes any. Photos only travel where you send them.'),
+      h('small', { class: 'where' }, where)),
     h('small', { style: { textAlign: 'center' } }, `Toy Arena ${APP_VERSION} · no accounts · no tracking`),
   );
   await modal({ emoji: '⚙️', title: 'Grown-ups', body, actions: [{ emoji: '✅', label: 'Done', cls: 'green', value: true }] });
