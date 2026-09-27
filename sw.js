@@ -38,6 +38,7 @@ const SHELL = [
   'js/core/rig.js',
   'js/core/stats.js',
   'js/screens/add.js',
+  'js/screens/bones.js',
   'js/screens/home.js',
   'js/screens/pick.js',
   'js/screens/toys.js',

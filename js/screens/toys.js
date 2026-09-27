@@ -1,7 +1,7 @@
 // "My Toys" collection grid, toy detail with a drag-to-spin 3D turntable.
 
 import * as THREE from 'three';
-import { h, btn, topbar, modal, toast, UrlBag } from '../ui.js';
+import { h, btn, topbar, modal, toast, UrlBag, holdToConfirm } from '../ui.js';
 import { go, back as navBack, loadToys } from '../app.js';
 import * as db from '../db.js';
 import { POWERS, powerById, levelFromXp, starsForLevel, randomName, XP_PER_LEVEL } from '../core/stats.js';
@@ -149,7 +149,10 @@ export async function toyScreen(el, { id }) {
   const p = powerById(toy.power);
   const powerChip = h('span', { class: 'chip' }, p.emoji, ' ', p.short || p.label);
   const level = levelFromXp(toy.xp);
+  const bonesBtn = btn({ emoji: '🦴', cls: 'icon white small bones-btn', aria: 'Grown-ups: hold to fix the bones' });
+  holdToConfirm(bonesBtn, 900, () => go('bones', { id: toy.id }), { hint: '👆 Grown-ups: press and hold' });
   const info = h('div', { class: 'panel info' },
+    bonesBtn,
     nameEl,
     h('div', { class: 'chips' }, powerChip, h('span', { class: 'chip' }, '🏆 ', String(toy.wins || 0)), h('span', { class: 'chip', style: { color: '#b07800' } }, starsText(toy)), h('span', { class: 'chip' }, `Lv ${level}`)),
     statBar('💪', 'Power', toy.stats.power, 'linear-gradient(#ff8a8a,#ff3d3d)'),

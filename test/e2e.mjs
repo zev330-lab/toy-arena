@@ -323,6 +323,30 @@ await step('06b app update keeps old toys (v1 records) and retires the old dummi
   await shot(page, '07b-collection-after-update');
 });
 
+await step('06c grown-ups bones editor: hold 🦴, drag a joint, save', async () => {
+  await page.goto(`${BASE}?nosw&mute=1`);
+  await ready(page);
+  const id = await page.evaluate(async () => (await window.__toyArena.db.allToys()).find(x => x.name === 'Claw Crusher').id);
+  await page.evaluate((i) => window.__toyArena.go('toy', { id: i }), id);
+  await screen(page, 'toy');
+  await page.getByRole('button', { name: 'Grown-ups: hold to fix the bones' }).dispatchEvent('pointerdown');
+  await screen(page, 'bones', 10000);
+  await page.waitForTimeout(600);
+  await shot(page, '11c-bones-editor');
+  const { start, fit, box } = await page.evaluate(() => { const b = document.querySelector('.screen.bones').__bones; const r = b.rig(); const w = document.querySelector('.fixwrap.bones').getBoundingClientRect(); return { start: r.joints.head, fit: b.fit(), box: { x: w.left, y: w.top } }; });
+  const sx = box.x + fit.x + start.x * fit.s, sy = box.y + fit.y + start.y * fit.s;
+  await page.mouse.move(sx, sy);
+  await page.mouse.down();
+  await page.mouse.move(sx + 30, sy + 20, { steps: 6 });
+  await page.mouse.up();
+  await page.locator('#bones-save').click({ force: true });
+  await screen(page, 'toy');
+  const saved = await page.evaluate(async (i) => (await window.__toyArena.db.getToy(i)).rig, id);
+  assert(saved && saved.auto === false && Math.abs(saved.joints.head.x - start.x) > 5, `rig not saved ${JSON.stringify(saved?.joints?.head)} vs ${JSON.stringify(start)}`);
+  await page.waitForTimeout(1500);
+  await shot(page, '11d-toy-after-bones');
+});
+
 async function runBattle(prefix, { players = '1p', stage = 'city', maxMs = 240000, fighters = ['Claw Crusher', 'Mega Bot'] } = {}) {
   await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);

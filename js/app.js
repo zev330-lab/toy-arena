@@ -10,6 +10,7 @@ const screens = {
   add: () => import('./screens/add.js').then(m => m.addScreen),
   toys: () => import('./screens/toys.js').then(m => m.toysScreen),
   toy: () => import('./screens/toys.js').then(m => m.toyScreen),
+  bones: () => import('./screens/bones.js').then(m => m.bonesScreen),
   pick: () => import('./screens/pick.js').then(m => m.pickScreen),
   stage: () => import('./screens/pick.js').then(m => m.stageScreen),
   battle: () => import('./battle.js').then(m => m.battleScreen),
