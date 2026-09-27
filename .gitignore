@@ -4,3 +4,4 @@ test/e2e-out/
 test/e2e-out/
 test/screenshots/
 test/photos/
+.claude/worktrees/
