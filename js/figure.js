@@ -67,7 +67,8 @@ export class Figure {
     const J = built.joints || {};
     const child = { shoulderL: 'elbowL', elbowL: 'handL', shoulderR: 'elbowR', elbowR: 'handR', hipL: 'kneeL', kneeL: 'footL', hipR: 'kneeR', kneeR: 'footR', neck: 'head', chest: 'neck', hips: 'chest' };
     for (const [a, b] of Object.entries(child)) {
-      if (J[a] && J[b]) this.restDir[a] = new THREE.Vector3().subVectors(J[b], J[a]).normalize();
+      // skip zero-length segments (joints on top of each other): aiming them would give NaN rotations
+      if (J[a] && J[b] && J[a].distanceTo(J[b]) > 1e-4) this.restDir[a] = new THREE.Vector3().subVectors(J[b], J[a]).normalize();
     }
     this.apps = Object.keys(this.bones).filter(n => /^app\d+_[01]$/.test(n));
     // how far a straight arm / leg reaches sideways from the toy's centre (where to stop when striking)
