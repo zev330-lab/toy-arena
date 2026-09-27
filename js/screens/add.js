@@ -9,7 +9,9 @@ import { autoCutout, reselect, loadSegmenter, aiDisabled } from '../segment.js';
 import { makeCutout, fitBack } from '../cutout.js';
 import { POWERS, deriveStats, randomName } from '../core/stats.js';
 import { maskArea } from '../core/mask.js';
+import { autoRig } from '../core/rig.js';
 import { sfx } from '../audio.js';
+import { THUMB_V } from '../mesh.js';
 
 export async function addScreen(el, params = {}) {
   const retake = params.retakeId ? await db.getToy(params.retakeId) : null;
@@ -289,7 +291,13 @@ export async function addScreen(el, params = {}) {
     const f = draft.front;
     const frontBlob = await canvasToBlob(f.canvas);
     const backBlob = draft.back ? await canvasToBlob(fitBack(draft.back, f)) : null;
-    return { width: f.width, height: f.height, contour: f.contour, outline: f.outline, edgeColor: f.edgeColor, frontBlob, backBlob };
+    // skeleton for the jointed 3D puppet (a retake gets a fresh one for the new photo)
+    const px = f.canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, f.width, f.height).data;
+    const alpha = new Uint8Array(f.width * f.height);
+    for (let i = 0; i < alpha.length; i++) alpha[i] = px[i * 4 + 3];
+    let rig = null;
+    try { rig = autoRig(alpha, f.width, f.height); } catch (e) { console.warn('[toy-arena] rig', e); }
+    return { width: f.width, height: f.height, contour: f.contour, outline: f.outline, edgeColor: f.edgeColor, frontBlob, backBlob, rig };
   }
 
   async function finish() {
@@ -304,6 +312,7 @@ export async function addScreen(el, params = {}) {
       };
       const { renderThumb } = await import('../engine.js');
       toy.thumbBlob = await renderThumb(toy);
+      toy.thumbV = THUMB_V;
       await db.putToy(toy);
       db.requestPersist();
       b.close();
@@ -323,6 +332,7 @@ export async function addScreen(el, params = {}) {
       Object.assign(retake, parts);
       const { renderThumb } = await import('../engine.js');
       retake.thumbBlob = await renderThumb(retake);
+      retake.thumbV = THUMB_V;
       await db.putToy(retake);
       b.close();
       toast('📸 New photo saved!');

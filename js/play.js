@@ -66,7 +66,7 @@ export async function playScreen(el, { ids, stage }) {
         a.face(b.home.x); b.face(a.home.x);
         await Promise.all([a.hopTo(mid - 0.42 * Math.sign(b.home.x - a.home.x || 1), z), b.hopTo(mid + 0.42 * Math.sign(b.home.x - a.home.x || 1), z)]);
         a.face(b.home.x); b.face(a.home.x);
-        a.jump(0.7, { dur: 0.6 }); await b.jump(0.7, { dur: 0.6 });
+        a.highFive(0.7); await b.highFive(0.7);
       }));
       for (const [a, b] of pairs()) {
         const p = a.headPos.clone().lerp(b.headPos, 0.5);
@@ -118,7 +118,7 @@ export async function playScreen(el, { ids, stage }) {
       sfx.countdown(true);
       banner(hud, 'GO!', { ms: 500, color: '#2fd26b' });
       let winner = null;
-      await Promise.all(figs.map((f, i) => f.hopTo(endX, lanes[i], { hopDur: 0.16 + Math.random() * 0.1, perHop: 0.45 + Math.random() * 0.2, height: 0.3, onLand: () => { if (Math.random() < 0.3) arena.fx.dust(f.root.position, 2); } })
+      await Promise.all(figs.map((f, i) => f.hopTo(endX, lanes[i], { run: true, speed: 2.4 + Math.random() * 1.1, hopDur: 0.16 + Math.random() * 0.1, perHop: 0.45 + Math.random() * 0.2, height: 0.3, onLand: () => { if (Math.random() < 0.3) arena.fx.dust(f.root.position, 2); } })
         .then(() => { if (!winner) { winner = f; sfx.fanfare(); arena.fx.stars(f.headPos, 12); say(f, '1ST!', '#ffd23f'); f.victory(); } })));
       await sleep(1500);
       if (!alive) return;
@@ -148,7 +148,7 @@ export async function playScreen(el, { ids, stage }) {
         a.face(b.home.x, 0.7); b.face(a.home.x, 0.7);
         sfx.kiss();
         arena.fx.hearts(a.headPos.clone().lerp(b.headPos, 0.5), 8);
-        await Promise.all([a.lean(0.35, 1.4), b.lean(0.35, 1.4)]);
+        await Promise.all([a.hug(1.4), b.hug(1.4)]);
       }));
       cheerOthers();
       figs.forEach(f => say(f, '❤️'));
@@ -159,8 +159,8 @@ export async function playScreen(el, { ids, stage }) {
       for (const [a, b] of pairs()) {
         const s = Math.sign(b.home.x - a.home.x || 1);
         await a.hopTo(b.home.x - 0.55 * s, b.home.z);
-        a.face(b.home.x);
-        a.wiggle(0.6);
+        a.face(b.home.x); b.face(a.home.x);
+        a.tickle(1.4);
         sfx.giggle();
         say(b, 'HA HA!', '#ff5fa2');
         await b.wiggle(1.4);
@@ -262,21 +262,19 @@ export async function playScreen(el, { ids, stage }) {
     const g = arena.groundAt(e.clientX, e.clientY);
     if (g) drag.target = clampR(g);
   }, opt);
-  const endDrag = () => { if (drag) { const f = drag.f; drag = null; const i = figs.indexOf(f); home[i] = f.home.clone(); } };
+  const endDrag = () => { if (drag) { const f = drag.f; drag = null; const i = figs.indexOf(f); home[i] = (f.chase || f.home).clone(); } };
   canvas.addEventListener('pointerup', endDrag, opt);
   canvas.addEventListener('pointercancel', endDrag, opt);
   const dragLoop = setInterval(() => {
-    if (!drag?.target || drag.f.busy()) return;
+    if (!drag?.target) return;
     const f = drag.f, t = drag.target;
-    const d = Math.hypot(t.x - f.home.x, t.z - f.home.z);
-    if (d < 0.15) return;
-    const step = Math.min(d, 0.6);
-    const nx = f.home.x + ((t.x - f.home.x) / d) * step, nz = f.home.z + ((t.z - f.home.z) / d) * step;
-    f.face(nx === f.home.x ? f.home.x + 1 : nx, 0.3);
-    f.hopTo(nx, nz, { hopDur: 0.22, onLand: () => sfx.step() });
+    if (Math.hypot(t.x - f.home.x, t.z - f.home.z) < 0.12) return;
+    if (!f.chase || f.chase.distanceTo(t) > 0.05) f.chaseTo(t.x, t.z, { onStep: () => sfx.step() });
   }, 60);
 
-  el.__play = { run, figs, ACTIONS, screenOf: (i) => arena.project(figs[i].chestPos) };
+  el.__play = { run, figs, ACTIONS, screenOf: (i) => arena.project(figs[i].chestPos),
+    freeze() { arena.timeScale = 0; },
+    advance(sec, step = 1 / 60) { for (let t = 0; t < sec; t += step) { for (const f of figs) f.update(step); arena.fx.update(step); arena.onFrame?.(step, step); } } };
   // intro hop-in
   figs.forEach((f, i) => { const hx = f.home.x; f.setHome(hx, 4); f.hopTo(hx, home[i].z, { onLand: () => sfx.step() }); });
   await sleep(200);

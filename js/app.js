@@ -89,10 +89,18 @@ export async function ensureDummies() {
   if (!dummiesReady) {
     dummiesReady = (async () => {
       const have = await db.allToys();
-      const missing = ['builtin-robo', 'builtin-blobby'].filter(id => !have.find(t => t.id === id));
+      const { makeDummies, BUILTIN_IDS, RETIRED_IDS, DUMMY_V } = await import('./dummies.js');
+      // the v1 standee dummies are retired (they had no real arms/legs to animate); keep "hide dummies"
+      const retired = have.filter(t => RETIRED_IDS.includes(t.id));
+      const hidden = retired.some(t => t.hidden) || have.some(t => BUILTIN_IDS.includes(t.id) && t.hidden);
+      for (const t of retired) await db.deleteToy(t.id);
+      const missing = BUILTIN_IDS.filter(id => !have.find(t => t.id === id && t.dummyV === DUMMY_V));
       if (!missing.length) return;
-      const { makeDummies } = await import('./dummies.js');
       const dummies = (await makeDummies()).filter(d => missing.includes(d.id));
+      for (const d of dummies) {
+        const old = have.find(t => t.id === d.id);
+        Object.assign(d, { hidden, wins: old?.wins || 0, losses: old?.losses || 0, xp: old?.xp || 0 });
+      }
       await db.putMany(dummies);
     })().catch((e) => { dummiesReady = null; console.warn('[toy-arena] dummies', e); });
   }
@@ -103,11 +111,13 @@ export async function ensureDummies() {
 export async function loadToys({ includeHidden = false } = {}) {
   await ensureDummies();
   const toys = await db.allToys();
-  const need = toys.filter(t => !t.thumbBlob);
+  // cards are re-rendered once whenever the 3D look changes (THUMB_V); photos and stats are untouched
+  const { THUMB_V } = await import('./mesh.js');
+  const need = toys.filter(t => !t.thumbBlob || t.thumbV !== THUMB_V);
   if (need.length) {
     const { renderThumb } = await import('./engine.js');
     for (const t of need) {
-      try { t.thumbBlob = await renderThumb(t); await db.putToy(t); } catch (e) { console.warn('[toy-arena] thumb', e); }
+      try { t.thumbBlob = await renderThumb(t); t.thumbV = THUMB_V; await db.putToy(t); } catch (e) { console.warn('[toy-arena] thumb', e); }
     }
   }
   return includeHidden ? toys : toys.filter(t => !t.hidden);

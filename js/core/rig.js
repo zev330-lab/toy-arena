@@ -386,6 +386,50 @@ export function autoRig(field, w, h, { iso = 127, side = 128 } = {}) {
     put(`hand${side}`, path[path.length - 1], `elbow${side}`);
   }
 
+  // ---- arms pressed against the body (no gap in the photo): split them off the wide rows ----
+  // Reference width = the hips just above where the legs split; rows clearly wider than that are arms.
+  if (!arms.L && !arms.R && (legLeaves || bb.h > bb.w * 1.2)) {
+    let yEnd = Math.round(hipsY);
+    const cx0 = Math.round(spineX(hipsY));
+    if (legLeaves) for (let y = Math.round(hipsY); y < H; y++) if (!mask[y * W + cx0]) { yEnd = y; break; }
+    const rows = [];
+    for (let y = Math.ceil(neckY) + 1; y < yEnd; y++) {
+      const c = Math.round(spineX(Math.min(y, hipsY)));
+      if (!mask[y * W + c]) continue;
+      let a = c, b = c;
+      while (a > 0 && mask[y * W + a - 1]) a--;
+      while (b < W - 1 && mask[y * W + b + 1]) b++;
+      rows.push({ y, a, b, c, w: b - a + 1 });
+    }
+    if (rows.length >= 6) {
+      const tail = rows.slice(-Math.max(2, Math.round(rows.length * 0.1))).map(r => r.w);
+      const hipW = median(tail);
+      // longest run of consecutive clearly-wider rows
+      let best = [], cur = [];
+      for (const r of rows) {
+        if (r.w > hipW * 1.25 && (!cur.length || r.y === cur[cur.length - 1].y + 1)) cur.push(r);
+        else { if (cur.length > best.length) best = cur; cur = r.w > hipW * 1.25 ? [r] : []; }
+      }
+      if (cur.length > best.length) best = cur;
+      const yTop = best.length ? best[0].y : 0, yBot = best.length ? best[best.length - 1].y : 0;
+      if (best.length >= 3 && yBot - yTop >= bb.h * 0.12 && yTop > neckY) {
+        const len = yBot - yTop;
+        const midL = best.reduce((acc, r) => acc + (r.a + (r.c - hipW / 2)) / 2, 0) / best.length;
+        const midR = best.reduce((acc, r) => acc + (r.b + (r.c + hipW / 2)) / 2, 0) / best.length;
+        const cT = best.reduce((acc, r) => acc + r.c, 0) / best.length;
+        J.chest = { ...gp(spineX(Math.min(yTop, hipsY - 1)), Math.min(yTop, hipsY - 1)), parent: 'hips' };
+        for (const [side, mx, sg] of [['L', midL, -1], ['R', midR, 1]]) {
+          put(`shoulder${side}`, gp(mx, yTop + len * 0.06), 'chest');
+          put(`elbow${side}`, gp(mx, yTop + len * 0.5), `shoulder${side}`);
+          put(`hand${side}`, gp(mx, yBot), `elbow${side}`);
+          // anchors that keep the torso's sides with the chest instead of peeling off with the arm
+          put(`torso${side}`, gp(cT + sg * hipW * 0.3, (yTop + yEnd) / 2), 'chest');
+        }
+        rig.armsMerged = true;
+      }
+    }
+  }
+
   // ---- legs ----
   if (legLeaves) {
     rig.kind = 'humanoid';
@@ -413,9 +457,15 @@ export function autoRig(field, w, h, { iso = 127, side = 128 } = {}) {
     if (path.length < 4) return;
     const ay = Y(b.attach);
     const parent = b.top ? 'head' : ay <= neckY ? 'neck' : ay <= chestY + 1 ? 'chest' : 'hips';
-    const L = arcLen(path);
-    put(`app${i}_0`, atLen(path, Math.min(L * 0.15, 2)), J[parent] ? parent : 'hips');
-    put(`app${i}_1`, atLen(path, L * 0.55), `app${i}_0`);
+    // the base joint sits where the branch leaves the body (like a shoulder), so the body never wiggles
+    const Dp = median(path.slice(Math.floor(path.length * 0.4)).map(p => D[p])) || 1;
+    let bi = 1;
+    while (bi < path.length * 0.6 && D[path[bi]] > Dp * 1.3) bi++;
+    bi = Math.min(bi, path.length - 3);
+    const rest = path.slice(bi);
+    if (rest.length < 3) return;
+    put(`app${i}_0`, path[bi], J[parent] ? parent : 'hips');
+    put(`app${i}_1`, atLen(rest, arcLen(rest) * 0.5), `app${i}_0`);
     put(`app${i}_2`, b.tip, `app${i}_1`);
   });
   return finalize(rig, bbPx);

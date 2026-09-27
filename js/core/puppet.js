@@ -190,6 +190,15 @@ export function skinWeights(rig, mesh, { blend = 24 } = {}) {
     }
     return d;
   });
+  // limb roots (shoulders, hips, appendage bases): skin BEHIND the joint (torso side) is not theirs
+  const J = rig.joints;
+  const rootDir = owners.map((o) => {
+    if (!/^(shoulder|hip)[LR]$|^app\d+_0$/.test(o)) return null;
+    const kid = Object.entries(J).find(([, j]) => j.parent === o);
+    if (!kid) return null;
+    const dx = kid[1].x - J[o].x, dy = kid[1].y - J[o].y, L = Math.hypot(dx, dy) || 1;
+    return { x: J[o].x, y: J[o].y, dx: dx / L, dy: dy / L };
+  });
   const nv = mesh.boundary.length;
   const skinIndex = new Uint16Array(nv * 4), skinWeight = new Float32Array(nv * 4);
   const ownerIdx = owners.map(o => index.get(o));
@@ -206,6 +215,15 @@ export function skinWeights(rig, mesh, { blend = 24 } = {}) {
         if (tmp[o] < dmin) dmin = tmp[o];
       }
     }
+    const vx = mesh.pos[v * 2], vy = mesh.pos[v * 2 + 1];
+    for (let o = 0; o < owners.length; o++) {
+      const r = rootDir[o];
+      if (!r) continue;
+      const along = (vx - r.x) * r.dx + (vy - r.y) * r.dy;
+      if (along < 0) tmp[o] += -along * 3;
+    }
+    dmin = Infinity;
+    for (let o = 0; o < owners.length; o++) if (tmp[o] < dmin) dmin = tmp[o];
     const cand = [];
     for (let o = 0; o < owners.length; o++) {
       const x = 1 - (tmp[o] - dmin) / blend;

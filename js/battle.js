@@ -182,20 +182,23 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
         case 'slash':
           me.fig.lunge(them.fig.home.x, { windup: 0.05, strike: 0.08, recover: 0.4, reach: 0.7, onImpact: () => { arena.fx.slash(to(), me.fig.dir, 0xe6f0ff); hit(); } });
           break;
-        case 'quake':
+        case 'quake': // leap up, fists first, pound the ground
           me.fig.jump(1.6, { dur: 0.75, onLand: () => { arena.fx.shockwave(me.fig.root.position, col); arena.fx.dust(me.fig.root.position, 12); arena.shake(0.5); hit(); } });
           break;
         case 'beam':
+          me.fig.castForward(0.9);
           arena.fx.beam(me.fig.headPos.clone().add(new THREE.Vector3(0.2 * me.fig.dir, -0.35, 0.1)), to(), col, 0.6);
           later(300, hit);
           break;
-        case 'fireball':
-          arena.fx.projectile(from(), to(), { color: 0xff7a1a, trailColor: 0xffd23f, size: 0.7, dur: 0.45, onHit: () => { arena.fx.burst(to(), { count: 24, color: 0xff5a1f, speed: 4, size: 0.4, tex: 'glow' }); hit(); } });
+        case 'fireball': // wind up and throw it
+          me.fig.throwMove({ onRelease: () => arena.fx.projectile(from(), to(), { color: 0xff7a1a, trailColor: 0xffd23f, size: 0.7, dur: 0.45, onHit: () => { arena.fx.burst(to(), { count: 24, color: 0xff5a1f, speed: 4, size: 0.4, tex: 'glow' }); hit(); } }) });
           break;
         case 'freeze':
+          me.fig.castForward(0.8);
           arena.fx.projectile(from(), to(), { tex: 'flake', color: 0xffffff, trailColor: 0x9be8ff, size: 0.45, dur: 0.45, spin: 8, onHit: () => { arena.fx.crystals(them.fig.root.position.clone(), 0x9be8ff); hit(); } });
           break;
-        case 'bolt':
+        case 'bolt': // call lightning down
+          me.fig.castUp(0.8);
           arena.fx.bolt(to().clone().add(new THREE.Vector3(0, 5, 0)), to(), 0xffe02e, 0.5);
           arena.fx.bolt(from(), to(), 0xfff6a0, 0.4);
           later(150, hit);
@@ -208,9 +211,11 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
           me.fig.lunge(them.fig.home.x, { windup: 0.05, strike: 0.12, recover: 0.4, reach: 0.65, onImpact: () => { arena.fx.shockwave(them.fig.root.position, col); hit(); } });
           break;
         case 'stars4':
-          for (let k = 0; k < 3; k++) later(k * 110, () => arena.fx.projectile(from().add(new THREE.Vector3(0, (k - 1) * 0.3, 0)), to(), { tex: 'shuriken', color: 0xffffff, size: 0.4, dur: 0.35, spin: 20, arc: 0.1, trail: 'spark', trailColor: 0xc9d3e0, onHit: k === 2 ? hit : null }));
+          me.fig.throwMove({ dur: 0.45 });
+          for (let k = 0; k < 3; k++) later(k * 110 + 150, () => arena.fx.projectile(from().add(new THREE.Vector3(0, (k - 1) * 0.3, 0)), to(), { tex: 'shuriken', color: 0xffffff, size: 0.4, dur: 0.35, spin: 20, arc: 0.1, trail: 'spark', trailColor: 0xc9d3e0, onHit: k === 2 ? hit : null }));
           break;
         default: // magic stars
+          me.fig.castForward(0.9);
           arena.fx.projectile(from(), to(), { tex: 'star', color: 0xffffff, size: 0.55, dur: 0.5, spin: 10, arc: 0.6, trail: 'spark', trailColor: col, onHit: () => { arena.fx.stars(to(), 10); hit(); } });
       }
     });
@@ -227,6 +232,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     await banner(hud, 'FIGHT!', { ms: 650, color: '#ff3d3d' });
     if (!alive) return;
     fighting = true;
+    for (const f of F) f.fig.stance = true;
     el.dataset.state = 'fighting';
     cpuNext = clock + 0.8;
   }
@@ -235,6 +241,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     fighting = false;
     el.dataset.state = 'ko';
     const w = F[winnerIdx], l = F[1 - winnerIdx];
+    l.fig.stance = false;
     arena.slowmo(0.22, 0.9);
     arena.zoomPunch(1.2);
     l.fig.stopAll();
@@ -264,6 +271,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     el.dataset.state = 'over';
     stopMusic();
     const w = F[winnerIdx], l = F[1 - winnerIdx];
+    for (const f of F) f.fig.stance = false;
     sfx.fanfare(); sfx.cheer();
     confetti(el, 80);
     arena.fx.confetti(w.fig.root.position, 60);
@@ -323,11 +331,15 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   };
 
   // test hook: lets automated tests drive the fight without timing flakiness
-  el.__battle = { F, match, doAttack, doBlock, canAct: (i) => fighting && canAct(F[i].st, clock), state: () => el.dataset.state };
+  el.__battle = { F, match, doAttack, doBlock, canAct: (i) => fighting && canAct(F[i].st, clock), state: () => el.dataset.state,
+    // deterministic stepping for screenshots on slow machines: freeze real time, advance by hand
+    freeze() { arena.timeScale = 0; },
+    advance(sec, step = 1 / 60) { for (let t = 0; t < sec; t += step) { for (const f of figs) f.update(step); arena.fx.update(step); arena.onFrame?.(step, step); } },
+    special: (i) => { F[i].st.meter = 100; doAttack(i, 'special'); } };
 
   updateHud();
   startMusic('battle');
-  // intro: toys hop in
+  // intro: toys walk in from the sides (legless toys hop)
   figs[0].setHome(-X - 2.2, 0); figs[1].setHome(X + 2.2, 0);
   figs[0].hopTo(-X, 0, { onLand: () => sfx.step() });
   await figs[1].hopTo(X, 0, { onLand: () => sfx.step() });

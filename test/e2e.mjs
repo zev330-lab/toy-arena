@@ -291,7 +291,7 @@ await step('06 collection persists across reload + detail turntable', async () =
   await shot(page, '11b-after-retake');
 });
 
-async function runBattle(prefix, { players = '1p', stage = 'city', maxMs = 240000, fighters = ['Claw Crusher', 'Robo Buddy'] } = {}) {
+async function runBattle(prefix, { players = '1p', stage = 'city', maxMs = 240000, fighters = ['Claw Crusher', 'Mega Bot'] } = {}) {
   await page.goto(`${BASE}?nosw&mute=1`);
   await ready(page);
   await tapText(page, 'Battle');
@@ -345,7 +345,7 @@ await step('07 battle vs CPU runs to a winner (button taps)', async () => {
 });
 
 await step('08 two-player layout (P2 controls rotated) + pause/quit', async () => {
-  await runBattle('13-2p', { players: '2p', stage: 'jungle', fighters: ['Blaze Tiger', 'Blobby Monster'] });
+  await runBattle('13-2p', { players: '2p', stage: 'jungle', fighters: ['Blaze Tiger', 'Kapow Kid'] });
   const rot = await page.evaluate(() => getComputedStyle(document.querySelector('.controls.p2')).transform);
   assert(rot && rot !== 'none', 'P2 controls are not rotated');
   for (let k = 0; k < 6; k++) {
@@ -363,7 +363,7 @@ await step('08 two-player layout (P2 controls rotated) + pause/quit', async () =
 
 await step('09 other arenas render (space, volcano)', async () => {
   for (const stage of ['space', 'volcano']) {
-    await runBattle(`14-${stage}`, { stage, fighters: ['Robo Buddy', 'Blobby Monster'] });
+    await runBattle(`14-${stage}`, { stage, fighters: ['Mega Bot', 'Kapow Kid'] });
     await page.locator('.controls.p1 [data-move="kick"]').tap({ force: true });
     await page.waitForTimeout(260);
     await shot(page, `14-${stage}-e-kick`);
@@ -375,7 +375,7 @@ await step('10 play mode with 4 toys: every action + drag', async () => {
   await ready(page);
   await tapText(page, 'Play');
   await screen(page, 'pick');
-  for (const f of ['Claw Crusher', 'Blaze Tiger', 'Robo Buddy', 'Blobby Monster']) await page.locator('.toy-grid .toy-card', { hasText: f }).click({ force: true });
+  for (const f of ['Claw Crusher', 'Blaze Tiger', 'Mega Bot', 'Kapow Kid']) await page.locator('.toy-grid .toy-card', { hasText: f }).click({ force: true });
   await shot(page, '15-play-a-pick');
   await page.locator('#pick-go').click({ force: true });
   await screen(page, 'stage');
@@ -493,7 +493,7 @@ await step('12 landscape layout', async () => {
   await ready(page);
   await page.waitForTimeout(600);
   await shot(page, '19-landscape-home');
-  await page.evaluate(() => window.__toyArena.go('battle', { ids: ['builtin-robo', 'builtin-blobby'], players: '1p', stage: 'volcano' }));
+  await page.evaluate(() => window.__toyArena.go('battle', { ids: ['builtin-megabot', 'builtin-kapow'], players: '1p', stage: 'volcano' }));
   await page.waitForFunction(() => document.querySelector('.screen.battle')?.dataset.state === 'fighting', null, { timeout: 30000 });
   await page.locator('.controls.p1 [data-move="punch"]').tap({ force: true });
   await page.waitForTimeout(250);

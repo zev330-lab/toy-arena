@@ -187,7 +187,7 @@ export async function toyScreen(el, { id }) {
   if (toy.builtin) el.querySelector('.actions').style.gridTemplateColumns = 'repeat(3, 1fr)';
   const tt = new Turntable(view, toy);
   tt.ready.then(async () => {
-    if (!toy.thumbBlob && !tt.disposed) { const { renderThumb } = await import('../engine.js'); toy.thumbBlob = await renderThumb(toy); await db.putToy(toy); }
+    if (!toy.thumbBlob && !tt.disposed) { const { renderThumb } = await import('../engine.js'); const { THUMB_V } = await import('../mesh.js'); toy.thumbBlob = await renderThumb(toy); toy.thumbV = THUMB_V; await db.putToy(toy); }
   }).catch((e) => console.warn('[toy-arena] turntable', e));
   return () => tt.dispose();
 }

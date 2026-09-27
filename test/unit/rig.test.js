@@ -94,3 +94,13 @@ test('empty / tiny masks fall back to a template instead of throwing', () => {
   const r = autoRig(new Uint8Array(100 * 100), 100, 100);
   assert.ok(r.joints.hips && r.joints.head);
 });
+
+test('arms pressed against the body (no gap) are split off the sides', () => {
+  // torso 140..260 wide, arms 100..140 and 260..300 touching it, legs apart
+  const pressed = or(circ(200, 70, 45), rect(140, 110, 260, 330), rect(100, 125, 140, 300), rect(260, 125, 300, 300), rect(150, 330, 190, 500), rect(210, 330, 250, 500));
+  const r = autoRig(field(400, 520, pressed), 400, 520);
+  assert.equal(r.kind, 'humanoid');
+  assert.equal(r.armsMerged, true);
+  assert.ok(r.joints.handL.x < 140 && r.joints.handR.x > 260, `hands ${r.joints.handL.x} ${r.joints.handR.x}`);
+  assert.ok(r.joints.torsoL && r.joints.torsoR, 'torso anchors');
+});
