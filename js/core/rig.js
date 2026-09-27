@@ -387,8 +387,10 @@ export function autoRig(field, w, h, { iso = 127, side = 128 } = {}) {
   }
 
   // ---- arms pressed against the body (no gap in the photo): split them off the wide rows ----
-  // Reference width = the hips just above where the legs split; rows clearly wider than that are arms.
-  if (!arms.L && !arms.R && (legLeaves || bb.h > bb.w * 1.2)) {
+  // Reference = the hips just above where the legs split; on a side with no arm found, rows that
+  // stick out clearly further than the hips are that arm (works for one pressed arm or both).
+  const missingSides = ['L', 'R'].filter(sd => !arms[sd]);
+  if (missingSides.length && (legLeaves || bb.h > bb.w * 1.2)) {
     let yEnd = Math.round(hipsY);
     const cx0 = Math.round(spineX(hipsY));
     if (legLeaves) for (let y = Math.round(hipsY); y < H; y++) if (!mask[y * W + cx0]) { yEnd = y; break; }
@@ -402,29 +404,32 @@ export function autoRig(field, w, h, { iso = 127, side = 128 } = {}) {
       rows.push({ y, a, b, c, w: b - a + 1 });
     }
     if (rows.length >= 6) {
-      const tail = rows.slice(-Math.max(2, Math.round(rows.length * 0.1))).map(r => r.w);
-      const hipW = median(tail);
-      // longest run of consecutive clearly-wider rows
-      let best = [], cur = [];
-      for (const r of rows) {
-        if (r.w > hipW * 1.25 && (!cur.length || r.y === cur[cur.length - 1].y + 1)) cur.push(r);
-        else { if (cur.length > best.length) best = cur; cur = r.w > hipW * 1.25 ? [r] : []; }
-      }
-      if (cur.length > best.length) best = cur;
-      const yTop = best.length ? best[0].y : 0, yBot = best.length ? best[best.length - 1].y : 0;
-      if (best.length >= 3 && yBot - yTop >= bb.h * 0.12 && yTop > neckY) {
-        const len = yBot - yTop;
-        const midL = best.reduce((acc, r) => acc + (r.a + (r.c - hipW / 2)) / 2, 0) / best.length;
-        const midR = best.reduce((acc, r) => acc + (r.b + (r.c + hipW / 2)) / 2, 0) / best.length;
-        const cT = best.reduce((acc, r) => acc + r.c, 0) / best.length;
-        J.chest = { ...gp(spineX(Math.min(yTop, hipsY - 1)), Math.min(yTop, hipsY - 1)), parent: 'hips' };
-        for (const [side, mx, sg] of [['L', midL, -1], ['R', midR, 1]]) {
-          put(`shoulder${side}`, gp(mx, yTop + len * 0.06), 'chest');
-          put(`elbow${side}`, gp(mx, yTop + len * 0.5), `shoulder${side}`);
-          put(`hand${side}`, gp(mx, yBot), `elbow${side}`);
-          // anchors that keep the torso's sides with the chest instead of peeling off with the arm
-          put(`torso${side}`, gp(cT + sg * hipW * 0.3, (yTop + yEnd) / 2), 'chest');
+      const tail = rows.slice(-Math.max(2, Math.round(rows.length * 0.1)));
+      const hipHalf = { L: median(tail.map(r => r.c - r.a + 0.5)), R: median(tail.map(r => r.b - r.c + 0.5)) };
+      for (const side of missingSides) {
+        const ext = (r) => (side === 'L' ? r.c - r.a + 0.5 : r.b - r.c + 0.5);
+        const ref = hipHalf[side];
+        // longest run of consecutive rows sticking out on this side
+        let best = [], cur = [];
+        for (const r of rows) {
+          const out = ext(r) > ref * 1.35 + 1;
+          if (out && (!cur.length || r.y === cur[cur.length - 1].y + 1)) cur.push(r);
+          else { if (cur.length > best.length) best = cur; cur = out ? [r] : []; }
         }
+        if (cur.length > best.length) best = cur;
+        const yTop = best.length ? best[0].y : 0, yBot = best.length ? best[best.length - 1].y : 0;
+        if (best.length < 3 || yBot - yTop < bb.h * 0.12 || yTop <= neckY) continue;
+        const len = yBot - yTop;
+        const sg = side === 'L' ? -1 : 1;
+        // arm centre line: halfway between the outer edge and where the torso would end
+        const mx = best.reduce((acc, r) => acc + (side === 'L' ? (r.a + (r.c - ref)) / 2 : (r.b + (r.c + ref)) / 2), 0) / best.length;
+        const cT = best.reduce((acc, r) => acc + r.c, 0) / best.length;
+        if (!arms.L && !arms.R && side === missingSides[0]) J.chest = { ...gp(spineX(Math.min(yTop, hipsY - 1)), Math.min(yTop, hipsY - 1)), parent: 'hips' };
+        put(`shoulder${side}`, gp(mx, yTop + len * 0.06), 'chest');
+        put(`elbow${side}`, gp(mx, yTop + len * 0.5), `shoulder${side}`);
+        put(`hand${side}`, gp(mx, yBot), `elbow${side}`);
+        // anchor that keeps the torso's side with the chest instead of peeling off with the arm
+        put(`torso${side}`, gp(cT + sg * ref * 0.6, (yTop + yEnd) / 2), 'chest');
         rig.armsMerged = true;
       }
     }

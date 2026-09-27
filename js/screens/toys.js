@@ -30,7 +30,10 @@ export class Turntable {
       this.fig.idleAmp = 1.2;
       s.add(this.fig.root);
       this.frameCam();
-      if (intro) { this.fig.jump(1.2, { dur: 0.9, flip: true }); this.fx.stars(new THREE.Vector3(0, 1.2, 0), 10); }
+      if (intro) { // the new toy flips in, then waves hello
+        this.fig.jump(1.2, { dur: 0.9, flip: true }).then(() => { if (!this.disposed) this.fig.wave(1.6); });
+        this.fx.stars(new THREE.Vector3(0, 1.2, 0), 10);
+      }
       startLoop((dt) => this.frame(dt));
     });
     getRenderer().setClearColor(0x000000, 0);
