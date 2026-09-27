@@ -43,16 +43,19 @@ export async function bonesScreen(el, { id }) {
   const px = img.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
   const alpha = new Uint8Array(W * H);
   for (let i = 0; i < alpha.length; i++) alpha[i] = px[i * 4 + 3];
-  let rig = structuredClone(rigFor(toy, alpha, W, H));
+  let rig = JSON.parse(JSON.stringify(rigFor(toy, alpha, W, H))); // structuredClone needs Safari 15.4+
 
   const wrap = h('div', { class: 'fixwrap bones' });
   const cv = h('canvas');
   wrap.append(cv, h('div', { class: 'bubble-hint' }, '✋ Drag the dots'));
   let fit = { x: 0, y: 0, s: 1 };
-  const draw = () => {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const resize = () => { // reallocating the canvas is slow on iPhone: only on real size changes
     const r = wrap.getBoundingClientRect();
-    const dpr = Math.min(2, devicePixelRatio || 1);
     cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
+    draw();
+  };
+  const draw = () => {
     const g = cv.getContext('2d');
     const s = Math.min(cv.width / W, cv.height / H) * 0.94;
     const dx = (cv.width - W * s) / 2, dy = (cv.height - H * s) / 2;
@@ -127,18 +130,23 @@ export async function bonesScreen(el, { id }) {
     wrap,
     tools,
     h('div', { class: 'action-row', style: { paddingTop: '10px' } },
-      btn({ emoji: '✅', label: 'Save', cls: 'green big', id: 'bones-save', onClick: async () => {
+      btn({ emoji: '✅', label: 'Save', cls: 'green big', id: 'bones-save', onClick: async (e) => {
+        const b = e.currentTarget;
+        if (b.disabled) return; // one save, one step back
+        b.disabled = true;
         // keep the torso anchors in step with a moved chest (they only matter for pressed-in arms)
         if (!hasArms()) drop(rig, ['torsoL', 'torsoR']);
-        await db.updateToy(toy.id, { rig: { ...rig, v: RIG_VERSION, auto: false, w: W, h: H } });
+        try {
+          await db.updateToy(toy.id, { rig: { ...rig, v: RIG_VERSION, auto: false, w: W, h: H } });
+        } catch (err) { b.disabled = false; toast('😵 Could not save'); return; }
         sfx.fanfare();
         toast('🦴 Bones saved!');
         navBack();
       } })),
   );
   el.__bones = { rig: () => rig, fit: () => fit };
-  const ro = new ResizeObserver(() => draw());
+  const ro = new ResizeObserver(() => resize());
   ro.observe(wrap);
-  requestAnimationFrame(draw);
+  requestAnimationFrame(resize);
   return () => ro.disconnect();
 }

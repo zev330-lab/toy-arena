@@ -11,7 +11,7 @@ import { POWERS, deriveStats, randomName } from '../core/stats.js';
 import { maskArea } from '../core/mask.js';
 import { autoRig } from '../core/rig.js';
 import { sfx } from '../audio.js';
-import { THUMB_V } from '../mesh.js';
+import { THUMB_V } from '../core/versions.js';
 
 export async function addScreen(el, params = {}) {
   const retake = params.retakeId ? await db.getToy(params.retakeId) : null;

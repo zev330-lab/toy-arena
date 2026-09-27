@@ -392,6 +392,8 @@ await step('07 battle vs CPU runs to a winner (button taps)', async () => {
   assert(st === 'over', `battle did not finish (state ${st}) after ${taps} taps`);
   await page.waitForTimeout(1800);
   await shot(page, '12-battle-g-winner');
+  // the loser gets back up and bows (it used to stay lying down: flop outlasted the KO banner)
+  await page.waitForFunction(() => !document.querySelector('.screen.battle').__battle.lying().some(Boolean), null, { timeout: 15000 });
   const banner = await page.locator('.banner.small').last().innerText();
   facts.battle = { taps, banner, seconds: Math.round((Date.now() - t0) / 1000) };
   console.log('   battle:', JSON.stringify(facts.battle));

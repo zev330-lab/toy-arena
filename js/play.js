@@ -40,7 +40,7 @@ export async function playScreen(el, { ids, stage }) {
   arena.framing = { lookY: 0.9, extraSpan: 1.4, minSpan: 3.0, height: 0.34, bias: 0.55 };
   const xs = LAYOUTS[n] || LAYOUTS[2];
   const figs = [];
-  for (let i = 0; i < n; i++) figs.push(await arena.addToy(toys[i], xs[i][0], xs[i][1]));
+  try { for (let i = 0; i < n; i++) figs.push(await arena.addToy(toys[i], xs[i][0], xs[i][1])); } catch (e) { arena.dispose(); throw e; }
   const faceCentre = () => {
     const cx = figs.reduce((s, f) => s + f.home.x, 0) / n;
     for (const f of figs) f.face(f.home.x === cx ? cx + 1 : cx, f.home.x === cx ? 0 : 0.42);

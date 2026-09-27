@@ -206,7 +206,13 @@ export async function toyScreen(el, { id }) {
   view.append(tapHint);
   tt.onTap = () => tapHint.remove();
   tt.ready.then(async () => {
-    if (!toy.thumbBlob && !tt.disposed) { const { renderThumb } = await import('../engine.js'); const { THUMB_V } = await import('../mesh.js'); toy.thumbBlob = await renderThumb(toy); toy.thumbV = THUMB_V; await db.putToy(toy); }
+    if (!toy.thumbBlob && !tt.disposed) {
+      const { renderThumb } = await import('../engine.js');
+      const { THUMB_V } = await import('../core/versions.js');
+      const thumbBlob = await renderThumb(toy);
+      // merge onto the latest record (a stale full write could undo a rename or revive a deleted toy)
+      if (!tt.disposed) await db.updateToy(toy.id, { thumbBlob, thumbV: THUMB_V });
+    }
   }).catch((e) => console.warn('[toy-arena] turntable', e));
   return () => tt.dispose();
 }

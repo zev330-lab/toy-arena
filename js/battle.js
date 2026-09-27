@@ -30,7 +30,8 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   arena.framing = { lookY: 0.95, extraSpan: 1.9, minSpan: 2.8, height: 0.26, bias: 0 };
   const portrait = view.clientHeight > view.clientWidth;
   const X = portrait ? 0.85 : 1.45;
-  const figs = [await arena.addToy(toys[0], -X, 0), await arena.addToy(toys[1], X, 0)];
+  let figs;
+  try { figs = [await arena.addToy(toys[0], -X, 0), await arena.addToy(toys[1], X, 0)]; } catch (e) { arena.dispose(); throw e; }
   figs[0].face(X); figs[1].face(-X);
   arena.framing.extraSpan = Math.max(...figs.map(f => f.built.width)) + 0.3;
   const F = [0, 1].map(i => ({ i, toy: toys[i], fig: figs[i], st: createFighter(toys[i], { isCpu: !two && i === 1 }), windUntil: 0 }));
@@ -245,11 +246,15 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     arena.slowmo(0.22, 0.9);
     arena.zoomPunch(1.2);
     l.fig.stopAll();
-    l.fig.flop();
+    // the flop runs in slowed game time and can outlast the banner: wait for it to land, or
+    // getUp() would read an upright pose and the toy would stay lying down afterwards
+    const down = l.fig.flop();
     l.fig.dizzy(3);
     arena.fx.dust(l.fig.root.position, 12);
     sfx.ko();
     await banner(hud, 'K.O.!', { ms: 1300, color: '#ff3d3d' });
+    if (!alive) return;
+    await down;
     if (!alive) return;
     const res = finishRound(match, winnerIdx);
     renderDots();
@@ -309,7 +314,8 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
       { emoji: '🏠', label: 'Quit', cls: 'white', value: 'quit' },
       { emoji: '▶️', label: 'Play', cls: 'green', value: 'play' }] });
     if (!alive) return;
-    arena.timeScale = saved || 1;
+    // a KO slow-mo may have ended while paused: only restore it if it's still running
+    arena.timeScale = arena.slowUntil ? saved || 1 : 1;
     paused = false;
     if (v === 'quit') navBack();
   }
@@ -332,6 +338,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
 
   // test hook: lets automated tests drive the fight without timing flakiness
   el.__battle = { F, match, doAttack, doBlock, canAct: (i) => fighting && canAct(F[i].st, clock), state: () => el.dataset.state,
+    lying: () => F.map(f => Math.abs(f.fig.hold.lean) > 0.1 || !!f.fig.hold.limbs),
     // deterministic stepping for screenshots on slow machines: freeze real time, advance by hand
     freeze() { arena.timeScale = 0; },
     advance(sec, step = 1 / 60) { for (let t = 0; t < sec; t += step) { for (const f of figs) f.update(step); arena.fx.update(step); arena.onFrame?.(step, step); } },

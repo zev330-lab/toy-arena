@@ -88,6 +88,8 @@ export class Figure {
   }
   get lead() { return this.dir > 0 ? 'R' : 'L'; }
   get rear() { return this.dir > 0 ? 'L' : 'R'; }
+  /** The arm facing the opponent — or the far one when this toy only has that arm. */
+  get leadArm() { return this.built.arms[this.lead] || !this.built.arms[this.rear] ? this.lead : this.rear; }
 
   bonePos(name, fallbackY) {
     const b = this.bones[name];
@@ -400,7 +402,8 @@ export class Figure {
     const limbReach = (kind === 'kick' ? this.reach.kick : this.reach.punch) * 0.92 + 0.2;
     const travel = Math.max(0, gap - Math.max(reach, limbReach)) * this.dir;
     this.punchCount = (this.punchCount || 0) + 1;
-    const arm = side || (kind === 'punch' && this.punchCount % 2 === 0 && this.built.arms[this.rear] ? this.rear : this.lead);
+    const both = this.built.arms.L && this.built.arms.R;
+    const arm = side || (kind !== 'punch' ? this.lead : both ? (this.punchCount % 2 === 0 ? this.rear : this.lead) : this.leadArm);
     const cross = arm === this.rear;
     return this.play(total, (p, pose) => {
       pose.noWalk = true;
@@ -668,7 +671,7 @@ export class Figure {
     return this.play(dur, (p, pose) => {
       const k = Math.min(1, bell(p, 0, 1) * 1.6);
       const w = wave ? Math.sin(p * 36) * 25 * D : 0;
-      this.arm(pose, this.lead, [55 * D, 20 * D], [80 * D + w, 15 * D], k);
+      this.arm(pose, this.leadArm, [55 * D, 20 * D], [80 * D + w, 15 * D], k);
       pose.y += wave ? 0 : Math.sin(Math.PI * p) * 0.25;
       pose.snap = wave ? 1 : 1 - Math.sin(Math.PI * p);
       this.leg(pose, this.rear, [-75 * D, -20 * D], [-110 * D, -40 * D], wave ? 0 : k * 0.7);
@@ -682,9 +685,14 @@ export class Figure {
       pose.noWalk = true;
       const wind = p < 0.45 ? ease.out(p / 0.45) : 0;
       const fling = p < 0.45 ? 0 : 1 - ease.inOut(seg(p, 0.45, 1));
-      this.arm(pose, this.lead, [40 * D, -70 * D], [90 * D, -60 * D], wind);
-      this.arm(pose, this.lead, [8 * D, 30 * D], [8 * D, 30 * D], fling);
-      this.arm(pose, this.rear, [-40 * D, 30 * D], [60 * D, 30 * D], Math.max(wind, fling));
+      if (this.leadArm === this.lead) {
+        this.arm(pose, this.lead, [40 * D, -70 * D], [90 * D, -60 * D], wind);
+        this.arm(pose, this.lead, [8 * D, 30 * D], [8 * D, 30 * D], fling);
+        this.arm(pose, this.rear, [-40 * D, 30 * D], [60 * D, 30 * D], Math.max(wind, fling));
+      } else { // only the far arm: wind it back on its own side, fling it across toward the opponent
+        this.arm(pose, this.rear, [-40 * D, -60 * D], [60 * D, -40 * D], wind);
+        this.arm(pose, this.rear, [170 * D, 40 * D], [172 * D, 35 * D], fling);
+      }
       pose.lean += -0.18 * wind + 0.3 * fling;
       this.turn(pose, 'chest', 0, (-0.4 * wind + 0.3 * fling) * this.dir, 0);
     }, { events: [{ at: 0.5, cb: () => onRelease?.() }] });

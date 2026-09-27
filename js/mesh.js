@@ -9,7 +9,7 @@ import { autoRig, RIG_VERSION, jointOrder } from './core/rig.js';
 import { buildPuppetMesh } from './core/puppet.js';
 
 export const FIG_H = 1.6;
-export const THUMB_V = 2; // bump when the figure look changes: collection cards re-render once
+export { THUMB_V } from './core/versions.js';
 export const BASE_H = 0;
 const INFLATE = 0.62;      // front bulge relative to a round cross-section
 const BACK_INFLATE = 0.5;  // the back is a little flatter, like a real action figure
@@ -41,13 +41,15 @@ function toTexture({ c, g, img, alpha }, maxAniso) {
 /** The rig to use for a toy: its saved rig if it still matches the photo, else a fresh auto-rig. */
 export function rigFor(toy, alpha, w, h) {
   const r = toy.rig;
-  if (r && r.v === RIG_VERSION && r.w === w && r.h === h && r.joints?.hips) return r;
+  // hand-edited skeletons (auto:false) are kept across rig-format bumps; automatic ones regenerate
+  if (r && r.w === w && r.h === h && r.joints?.hips && (r.v === RIG_VERSION || r.auto === false)) return r;
   return autoRig(alpha, w, h);
 }
 
 function puppetData(toy, alpha, w, h) {
   const rig = rigFor(toy, alpha, w, h);
-  const key = `${toy.id}|${toy.updatedAt || toy.createdAt || 0}|${w}x${h}|${JSON.stringify(rig.joints)}`;
+  // keyed on the photo + skeleton (not updatedAt, which every XP save bumps)
+  const key = `${toy.id}|${toy.frontBlob?.size || 0}|${w}x${h}|${JSON.stringify(rig.joints)}`;
   let pm = puppetCache.get(key);
   if (!pm) {
     pm = buildPuppetMesh(alpha, w, h, rig);

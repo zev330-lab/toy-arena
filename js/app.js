@@ -1,6 +1,7 @@
 // Toy Arena — boot, screen router, shared state.
 
-import { h, toast } from './ui.js';
+import { h, toast, busy } from './ui.js';
+import { THUMB_V } from './core/versions.js';
 import * as db from './db.js';
 import { installAudioUnlock, setMuted, sfx } from './audio.js';
 
@@ -94,15 +95,17 @@ export async function ensureDummies() {
       // the v1 standee dummies are retired (they had no real arms/legs to animate); keep "hide dummies"
       const retired = have.filter(t => RETIRED_IDS.includes(t.id));
       const hidden = retired.some(t => t.hidden) || have.some(t => BUILTIN_IDS.includes(t.id) && t.hidden);
-      for (const t of retired) await db.deleteToy(t.id);
       const missing = BUILTIN_IDS.filter(id => !have.find(t => t.id === id && t.dummyV === DUMMY_V));
-      if (!missing.length) return;
-      const dummies = (await makeDummies()).filter(d => missing.includes(d.id));
-      for (const d of dummies) {
-        const old = have.find(t => t.id === d.id);
-        Object.assign(d, { hidden, wins: old?.wins || 0, losses: old?.losses || 0, xp: old?.xp || 0 });
+      if (missing.length) {
+        const dummies = (await makeDummies()).filter(d => missing.includes(d.id));
+        for (const d of dummies) {
+          const old = have.find(t => t.id === d.id);
+          Object.assign(d, { hidden, wins: old?.wins || 0, losses: old?.losses || 0, xp: old?.xp || 0 });
+        }
+        await db.putMany(dummies);
       }
-      await db.putMany(dummies);
+      // only after the new ones are safely stored (a failure here keeps the "hidden" choice for the retry)
+      for (const t of retired) await db.deleteToy(t.id);
     })().catch((e) => { dummiesReady = null; console.warn('[toy-arena] dummies', e); });
   }
   return dummiesReady;
@@ -110,24 +113,23 @@ export async function ensureDummies() {
 
 /** All toys, with missing / out-of-date card thumbnails rendered (and cached) on the way. */
 let thumbJob = null;
+const thumbFailed = new Set(); // cards that failed to render this session: don't retry on every screen
 export async function loadToys({ includeHidden = false } = {}) {
   await ensureDummies();
-  // concurrent callers (home shelf + the next screen) share one refresh
-  if (!thumbJob) thumbJob = refreshThumbs().finally(() => { thumbJob = null; });
-  await thumbJob;
-  const toys = await db.allToys();
+  let toys = await db.allToys();
+  const need = toys.filter(t => (!t.thumbBlob || t.thumbV !== THUMB_V) && !thumbFailed.has(t.id));
+  if (need.length) {
+    // concurrent callers (home shelf + the next screen) share one refresh
+    if (!thumbJob) thumbJob = refreshThumbs(need).finally(() => { thumbJob = null; });
+    await thumbJob;
+    toys = await db.allToys();
+  }
   return includeHidden ? toys : toys.filter(t => !t.hidden);
 }
 
-async function refreshThumbs() {
-  const toys = await db.allToys();
-  // cards are re-rendered once whenever the 3D look changes (THUMB_V); photos and stats are untouched
-  const { THUMB_V } = await import('./mesh.js');
-  const need = toys.filter(t => !t.thumbBlob || t.thumbV !== THUMB_V);
-  if (!need.length) return;
+async function refreshThumbs(need) {
   const { renderThumb } = await import('./engine.js');
   // after an update every card re-renders once: show a friendly wait when it's more than a couple
-  const { busy } = await import('./ui.js');
   const wait = need.length > 2 && document.getElementById('app') ? busy('Waking up your toys…', { emoji: '🧸' }) : null;
   try {
     for (const [i, t] of need.entries()) {
@@ -135,7 +137,7 @@ async function refreshThumbs() {
         const thumbBlob = await renderThumb(t);
         // write only the card fields onto the latest record (never clobber other edits)
         await db.updateToy(t.id, { thumbBlob, thumbV: THUMB_V });
-      } catch (e) { console.warn('[toy-arena] thumb', e); }
+      } catch (e) { thumbFailed.add(t.id); console.warn('[toy-arena] thumb', e); }
       wait?.set(null, (i + 1) / need.length);
     }
   } finally { wait?.close(); }

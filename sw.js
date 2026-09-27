@@ -36,6 +36,7 @@ const SHELL = [
   'js/core/mask.js',
   'js/core/puppet.js',
   'js/core/rig.js',
+  'js/core/versions.js',
   'js/core/stats.js',
   'js/screens/add.js',
   'js/screens/bones.js',
