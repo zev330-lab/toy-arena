@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createFighter, computeDamage, resolveAttack, startAttack, startBlock, canAct, createMatch, startRound,
-  finishRound, cpuDecide, cpuThinkDelay, damageScaleFor, MOVES, cooldownFor,
+  finishRound, cpuDecide, cpuThinkDelay, damageScaleFor, MOVES, cooldownFor, startJump, canJump, isAirborne, JUMP_TIME, JUMP_COOLDOWN,
 } from '../../js/core/battle-logic.js';
 import { makeRng } from '../../js/core/stats.js';
 
@@ -80,6 +80,7 @@ function simulate(seed, difficulty) {
     if (t >= cpuNext) {
       const mv = cpuDecide(cpu, kid, { difficulty, rng, now: t, opponentAttacking: pending.some(p => p.a === kid) });
       if (mv === 'block') startBlock(cpu, t);
+      else if (mv === 'jump') startJump(cpu, t);
       else if (mv !== 'wait' && startAttack(cpu, mv, t)) pending.push({ at: t + MOVES[mv].windup, a: cpu, d: kid, mv });
       cpuNext = t + cpuThinkDelay(difficulty, rng);
     }
@@ -107,4 +108,52 @@ test('easy CPU is beatable by button mashing (kid wins most matches)', () => {
   let wins = 0;
   for (let s = 1; s <= 40; s++) if (simulate(s, 'easy').winner === 0) wins++;
   assert.ok(wins >= 30, `kid won ${wins}/40`);
+});
+
+test('jumping makes punches and kicks miss; supers still land', () => {
+  const a = createFighter(toy('a', { power: 70, speed: 60, defense: 60 }));
+  const b = createFighter(toy('b', { power: 70, speed: 60, defense: 60 }));
+  assert.equal(startJump(b, 0), true);
+  assert.ok(isAirborne(b, 0.3) && !isAirborne(b, JUMP_TIME + 0.01));
+  const r = resolveAttack(a, b, 'punch', { now: 0.3, rng: () => 0.5 });
+  assert.equal(r.missed, true); assert.equal(r.damage, 0); assert.equal(r.word, 'MISS!');
+  assert.equal(b.hp, 100);
+  assert.equal(resolveAttack(a, b, 'kick', { now: 0.5, rng: () => 0.5 }).missed, true);
+  a.meter = 100;
+  const s = resolveAttack(a, b, 'special', { now: 0.6, rng: () => 0.5 });
+  assert.equal(s.missed, false); assert.ok(b.hp < 100, 'super hits a jumper');
+  assert.equal(resolveAttack(a, b, 'punch', { now: JUMP_TIME + 0.05, rng: () => 0.5 }).missed, false, 'back on the ground = hittable');
+});
+
+test('jump has a cooldown and needs a free fighter', () => {
+  const f = createFighter(toy('f', { power: 60, speed: 60, defense: 60 }));
+  assert.equal(startJump(f, 0), true);
+  assert.equal(canJump(f, 0.5), false);
+  assert.equal(startJump(f, JUMP_COOLDOWN - 0.01), false);
+  assert.equal(startJump(f, JUMP_COOLDOWN + 0.01), true);
+  const g = createFighter(toy('g', { power: 60, speed: 60, defense: 60 }));
+  startAttack(g, 'kick', 0);
+  assert.equal(startJump(g, 0.1), false, 'mid-kick');
+});
+
+test('a kick started in the air is a flying kick: more damage', () => {
+  const mk = () => createFighter(toy('x', { power: 70, speed: 60, defense: 60 }));
+  const ground = mk(), air = mk(), d1 = mk(), d2 = mk();
+  startAttack(ground, 'kick', 0);
+  const r1 = resolveAttack(ground, d1, 'kick', { now: 0.3, rng: () => 0.5 });
+  startJump(air, 0);
+  assert.equal(startAttack(air, 'kick', 0.3), true, 'can kick from the air');
+  const r2 = resolveAttack(air, d2, 'kick', { now: 0.55, rng: () => 0.5 });
+  assert.equal(r2.flying, true); assert.equal(r2.word, 'FLYING KICK!');
+  assert.ok(r2.damage > r1.damage, `${r2.damage} > ${r1.damage}`);
+});
+
+test('the CPU sometimes jumps: dodges on hard, hops for fun', () => {
+  const kid = createFighter(toy('k', { power: 60, speed: 60, defense: 60 }));
+  let dodges = 0;
+  for (let i = 0; i < 200; i++) {
+    const cpu = createFighter(toy('c', { power: 60, speed: 60, defense: 60 }), { isCpu: true });
+    if (cpuDecide(cpu, kid, { difficulty: 'hard', rng: makeRng(i + 7), now: 5, opponentAttacking: true }) === 'jump') dodges++;
+  }
+  assert.ok(dodges > 5 && dodges < 120, `hard CPU jumped ${dodges}/200`);
 });

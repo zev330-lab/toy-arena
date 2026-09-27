@@ -439,6 +439,30 @@ await step('08 two-player layout (P2 controls rotated) + pause/quit', async () =
   await screen(page, 'pick');
 });
 
+await step('08b jump: a punch misses a jumping toy, a kick from the air is a flying kick', async () => {
+  await page.goto(`${BASE}?nosw&mute=1`);
+  await ready(page);
+  await page.evaluate(() => window.__toyArena.go('battle', { ids: ['builtin-megabot', 'builtin-kapow'], players: '2p', stage: 'city' }));
+  await page.waitForFunction(() => document.querySelector('.screen.battle')?.dataset.state === 'fighting', null, { timeout: 60000 });
+  assert(await page.locator('.controls.p1 [data-move="jump"]').count() === 1 && await page.locator('.controls.p2 [data-move="jump"]').count() === 1, 'jump buttons missing');
+  const B = (code) => page.evaluate(`(() => { const b = document.querySelector('.screen.battle').__battle; ${code} })()`);
+  await B('b.freeze(); b.advance(0.3);');
+  await page.locator('.controls.p1 [data-move="jump"]').tap({ force: true }); // a real tap on the button
+  await B("b.doAttack(1, 'punch'); b.advance(0.28);");
+  await page.waitForTimeout(500);
+  await shot(page, '13b-jump-dodge');
+  const r1 = await B("return { hp: b.F[0].st.hp, misses: document.querySelector('.screen.battle').dataset.misses };");
+  assert(r1.hp === 100 && r1.misses === '1', `jump did not dodge: ${JSON.stringify(r1)}`);
+  // flying kick: P2 jumps, kicks in the air
+  await B("b.advance(1.6); b.doJump(1); b.advance(0.3); b.doAttack(1, 'kick'); b.advance(0.45);");
+  await page.waitForTimeout(500);
+  await shot(page, '13c-flying-kick');
+  const r2 = await B('return b.F[0].st.hp;');
+  facts.jump = { dodge: r1, afterFlyingKick: r2 };
+  assert(r2 < 100, 'flying kick did not land');
+  await B('b.unfreeze();');
+});
+
 await step('09 other arenas render (space, volcano)', async () => {
   for (const stage of ['space', 'volcano']) {
     await runBattle(`14-${stage}`, { stage, fighters: ['Mega Bot', 'Kapow Kid'] });

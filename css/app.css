@@ -328,6 +328,14 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .controls .btn.special .fill { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--m, 0) * 100%); background: rgba(255, 210, 63, .55); z-index: -1; }
 .controls .btn.special.ready { animation: pulse .6s infinite; --c: var(--yellow); }
 .controls .btn.special:not(.ready) { --c: #7b6fb0; --fg: #ddd; }
+.controls .btn.jump.cooling { filter: saturate(.35) brightness(.85); }
+/* one player: all five buttons in one row along the bottom */
+.controls.p1.solo { left: calc(var(--sal) + 10px); right: calc(var(--sar) + 10px); grid-template-columns: repeat(5, 1fr); gap: 4px; justify-items: center; }
+.controls.solo .btn { width: min(72px, 18.5vw); height: min(72px, 18.5vw); font-size: 12px; }
+.controls.solo .btn .emo { font-size: min(31px, 8vw); }
+/* two players: 2 × 2 fists/feet/shield/super, jump as a wide pill underneath (above, for the flipped P2 pad) */
+.controls:not(.solo) .btn.jump { order: 5; grid-column: 1 / -1; width: 100%; height: 50px; border-radius: 99px; flex-direction: row; gap: 6px; font-size: 16px; }
+.controls:not(.solo) .btn.jump .emo { font-size: 26px; }
 .p2hud { position: absolute; left: calc(var(--sal) + 12px); top: calc(var(--sat) + 12px); width: 52%; transform: rotate(180deg); }
 .p1hud { position: absolute; right: calc(var(--sar) + 12px); bottom: calc(var(--sab) + 14px); width: 48%; }
 .hud-top-btns { position: absolute; top: calc(var(--sat) + 70px); left: calc(var(--sal) + 10px); display: flex; gap: 8px; }

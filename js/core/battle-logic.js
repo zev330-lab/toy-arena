@@ -7,12 +7,15 @@ export const MOVES = {
   special: { base: 18, windup: 0.5, cooldown: 1.2, meter: 0, knock: 1.2, words: ['KA-BOOM!', 'ZAP!', 'SUPER!', 'WHOOSH!'] },
 };
 export const BLOCK_TIME = 0.9;
+export const JUMP_TIME = 0.75;     // seconds in the air: punches and kicks whoosh underneath
+export const JUMP_COOLDOWN = 1.3;  // take-off to the next jump (no hovering forever)
+export const FLYING_BONUS = 1.35;  // punch / kick started in the air hits harder
 export const MAX_HP = 100;
 export const COMBO_WINDOW = 1.6;
 
 export const DIFFICULTY = {
-  easy: { cpuDamage: 0.7, playerDamage: 1.15, think: [1.0, 1.7], block: 0.12, attack: 0.7, kick: 0.3, special: 0.5 },
-  hard: { cpuDamage: 1.25, playerDamage: 0.9, think: [0.25, 0.5], block: 0.5, attack: 0.95, kick: 0.45, special: 0.95 },
+  easy: { cpuDamage: 0.7, playerDamage: 1.15, think: [1.0, 1.7], block: 0.12, dodge: 0.06, hop: 0.05, attack: 0.7, kick: 0.3, special: 0.5 },
+  hard: { cpuDamage: 1.25, playerDamage: 0.9, think: [0.25, 0.5], block: 0.5, dodge: 0.3, hop: 0.06, attack: 0.95, kick: 0.45, special: 0.95 },
 };
 
 export function createFighter(toy, { isCpu = false } = {}) {
@@ -21,6 +24,7 @@ export function createFighter(toy, { isCpu = false } = {}) {
     id: toy.id, name: toy.name, power: toy.power, stats, isCpu,
     hp: MAX_HP, meter: 0, roundWins: 0,
     busyUntil: 0, blockUntil: -1, combo: 0, lastHitAt: -99,
+    airUntil: -1, jumpReadyAt: 0, airAttack: false,
   };
 }
 
@@ -32,6 +36,18 @@ export function cooldownFor(f, moveId) {
 export function canAct(f, now) { return f.hp > 0 && now >= f.busyUntil; }
 export function isBlocking(f, now) { return now < f.blockUntil; }
 export function specialReady(f) { return f.meter >= 100; }
+export function isAirborne(f, now) { return now < f.airUntil; }
+export function canJump(f, now) { return canAct(f, now) && now >= f.jumpReadyAt; }
+
+/** Jump: in the air for JUMP_TIME (punches and kicks miss), can attack from the air after a beat. */
+export function startJump(f, now) {
+  if (!canJump(f, now)) return false;
+  f.airUntil = now + JUMP_TIME;
+  f.jumpReadyAt = now + JUMP_COOLDOWN;
+  f.blockUntil = -1;
+  f.busyUntil = now + 0.25;
+  return true;
+}
 
 export function startBlock(f, now) {
   if (!canAct(f, now)) return false;
@@ -46,15 +62,17 @@ export function startAttack(f, moveId, now) {
   if (moveId === 'special' && !specialReady(f)) return false;
   f.blockUntil = -1;
   f.busyUntil = now + MOVES[moveId].windup + cooldownFor(f, moveId);
+  f.airAttack = moveId !== 'special' && isAirborne(f, now); // a flying kick / sky punch
   if (moveId === 'special') f.meter = 0;
   return true;
 }
 
-export function computeDamage(att, def, moveId, { blocked = false, roll = 0.5, scale = 1 } = {}) {
+export function computeDamage(att, def, moveId, { blocked = false, roll = 0.5, scale = 1, flying = false } = {}) {
   const m = MOVES[moveId];
   let dmg = m.base * (0.75 + att.stats.power / 200) * (1.15 - def.stats.defense / 300);
   dmg *= 0.9 + roll * 0.2;
   dmg *= scale;
+  if (flying) dmg *= FLYING_BONUS;
   if (blocked) dmg *= moveId === 'special' ? 0.5 : 0.2;
   return Math.max(1, Math.round(dmg));
 }
@@ -64,8 +82,16 @@ export function computeDamage(att, def, moveId, { blocked = false, roll = 0.5, s
  * Returns { damage, blocked, ko, combo, word }.
  */
 export function resolveAttack(att, def, moveId, { now, rng = Math.random, scale = 1 } = {}) {
+  const flying = att.airAttack && moveId !== 'special';
+  att.airAttack = false;
+  // jumped over it: punches and kicks miss (supers still land), the jumper earns a little meter
+  if (moveId !== 'special' && isAirborne(def, now)) {
+    att.combo = 0;
+    def.meter = Math.min(100, def.meter + 6);
+    return { damage: 0, blocked: false, missed: true, flying: false, ko: false, combo: 0, word: 'MISS!' };
+  }
   const blocked = isBlocking(def, now) && moveId !== 'special' ? true : (isBlocking(def, now) && rng() < 0.5);
-  const damage = computeDamage(att, def, moveId, { blocked, roll: rng(), scale });
+  const damage = computeDamage(att, def, moveId, { blocked, roll: rng(), scale, flying: flying && !blocked });
   def.hp = Math.max(0, def.hp - damage);
   if (!blocked) {
     att.combo = now - att.lastHitAt <= COMBO_WINDOW ? att.combo + 1 : 1;
@@ -77,7 +103,8 @@ export function resolveAttack(att, def, moveId, { now, rng = Math.random, scale 
   if (moveId !== 'special') att.meter = Math.min(100, att.meter + MOVES[moveId].meter * (blocked ? 0.4 : 1));
   def.meter = Math.min(100, def.meter + (blocked ? 4 : 8));
   const words = MOVES[moveId].words;
-  return { damage, blocked, ko: def.hp <= 0, combo: blocked ? 0 : att.combo, word: blocked ? 'BLOCK!' : words[Math.floor(rng() * words.length)] };
+  const word = blocked ? 'BLOCK!' : flying ? (moveId === 'kick' ? 'FLYING KICK!' : 'SKY PUNCH!') : words[Math.floor(rng() * words.length)];
+  return { damage, blocked, missed: false, flying: flying && !blocked, ko: def.hp <= 0, combo: blocked ? 0 : att.combo, word };
 }
 
 export function createMatch(a, b, { bestOf = 3 } = {}) {
@@ -111,12 +138,14 @@ export function cpuThinkDelay(difficulty = 'easy', rng = Math.random) {
 
 /**
  * CPU brain. `opponentAttacking` = the human is winding up right now.
- * Returns 'punch' | 'kick' | 'special' | 'block' | 'wait'.
+ * Returns 'punch' | 'kick' | 'special' | 'block' | 'jump' | 'wait'.
  */
 export function cpuDecide(cpu, opponent, { difficulty = 'easy', rng = Math.random, now = 0, opponentAttacking = false } = {}) {
   const d = DIFFICULTY[difficulty] || DIFFICULTY.easy;
   if (!canAct(cpu, now)) return 'wait';
   if (opponentAttacking && rng() < d.block) return 'block';
+  if (opponentAttacking && canJump(cpu, now) && rng() < d.dodge) return 'jump';
+  if (canJump(cpu, now) && rng() < d.hop) return 'jump'; // now and then, just for fun
   if (specialReady(cpu) && rng() < d.special) return 'special';
   // on easy, go gentle when the kid is losing badly
   let attack = d.attack;

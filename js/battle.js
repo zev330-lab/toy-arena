@@ -10,7 +10,7 @@ import { sfx, startMusic, stopMusic, buzz } from './audio.js';
 import { powerById, awardXp } from './core/stats.js';
 import {
   MOVES, BLOCK_TIME, createFighter, createMatch, startRound, finishRound, startAttack, startBlock,
-  resolveAttack, cpuDecide, cpuThinkDelay, damageScaleFor, specialReady, canAct,
+  resolveAttack, cpuDecide, cpuThinkDelay, damageScaleFor, specialReady, canAct, startJump, canJump, JUMP_TIME,
 } from './core/battle-logic.js';
 
 export async function battleScreen(el, { ids, players = '1p', stage }) {
@@ -80,18 +80,21 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     const mk = (move, emoji, label, color) => {
       const b = btn({ emoji, label, cls: `${color} ${move}`, aria: label });
       b.dataset.move = move;
+      const act = () => (move === 'block' ? doBlock(f.i) : move === 'jump' ? doJump(f.i) : doAttack(f.i, move));
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         b.classList.add('pressed');
         setTimeout(() => b.classList.remove('pressed'), 120);
-        if (move === 'block') doBlock(f.i); else doAttack(f.i, move);
+        act();
       });
-      b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (move === 'block') doBlock(f.i); else doAttack(f.i, move); } });
+      b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
       return b;
     };
     const sp = mk('special', powerById(f.toy.power).emoji, 'Super', 'yellow');
+    const jb = mk('jump', '🦘', 'Jump', 'orange');
+    f.ui.jump = jb;
     sp.append(h('span', { class: 'fill' }));
-    pad.append(mk('punch', '👊', 'Punch', 'red'), mk('kick', '🦶', 'Kick', 'blue'), mk('block', '🛡️', 'Block', 'green'), sp);
+    pad.append(mk('punch', '👊', 'Punch', 'red'), mk('kick', '🦶', 'Kick', 'blue'), jb, mk('block', '🛡️', 'Block', 'green'), sp);
     f.ui.special = sp;
     return pad;
   };
@@ -99,8 +102,7 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     hud.append(controlPad(F[0], 'p1'), controlPad(F[1], 'p2'));
   } else {
     const pad = controlPad(F[0], 'p1');
-    pad.style.cssText = 'left:calc(var(--sal) + 12px);right:calc(var(--sar) + 12px);grid-template-columns:repeat(4,1fr);justify-items:center';
-    pad.querySelectorAll('.btn').forEach(b => { b.style.width = '84px'; b.style.height = '84px'; });
+    pad.classList.add('solo'); // one player: all five buttons in a row along the bottom
     hud.append(pad);
   }
 
@@ -130,6 +132,17 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     sfx.whoosh();
   }
 
+  function doJump(i) {
+    if (!fighting || paused) return;
+    const f = F[i];
+    if (!startJump(f.st, clock)) {
+      if (canAct(f.st, clock)) f.ui.jump?.animate([{ transform: 'translateY(-6px)' }, { transform: 'none' }], { duration: 200 }); // still cooling down
+      return;
+    }
+    sfx.jump();
+    f.fig.jump(1.05, { dur: JUMP_TIME + 0.12, flip: Math.random() < 0.3, onLand: () => { sfx.land(); arena.fx.dust(f.fig.root.position, 6); } });
+  }
+
   function doAttack(i, move) {
     if (!fighting || paused) return;
     const me = F[i], them = F[1 - i];
@@ -147,20 +160,27 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
     const r = resolveAttack(me.st, them.st, move, { now: clock, scale: damageScaleFor(me.st, difficulty) });
     const at = them.fig.chestPos;
     const color = powerById(me.toy.power).color;
+    if (r.missed) { // jumped right over it
+      sfx.whoosh();
+      powBubble(fxLayer, arena, at, 'MISS!', { color: '#ffffff' });
+      el.dataset.misses = String(Number(el.dataset.misses || 0) + 1);
+      updateHud();
+      return;
+    }
     if (r.blocked) {
       sfx.block();
       arena.fx.hitSparks(at, 0x9be8ff);
       them.fig.knockback(0.3, { blocked: true });
       powBubble(fxLayer, arena, at, 'BLOCK!', { color: '#9be8ff' });
     } else {
-      const big = move !== 'punch';
-      sfx.hit(move === 'special' ? 1.6 : move === 'kick' ? 1.2 : 0.9);
+      const big = move !== 'punch' || r.flying;
+      sfx.hit(move === 'special' ? 1.6 : move === 'kick' || r.flying ? 1.2 : 0.9);
       arena.fx.hitSparks(at, move === 'special' ? new THREE.Color(color).getHex() : 0xffe066, big);
       arena.fx.stars(at, big ? 5 : 3);
       arena.shake(move === 'special' ? 0.35 : big ? 0.2 : 0.12);
       arena.zoomPunch(move === 'special' ? 1 : 0.5);
-      them.fig.knockback(MOVES[move].knock);
-      powBubble(fxLayer, arena, at, r.word, { big: move === 'special' });
+      them.fig.knockback(MOVES[move].knock * (r.flying ? 1.4 : 1));
+      powBubble(fxLayer, arena, at, r.word, { big: move === 'special' || r.flying });
       if (r.combo >= 2) comboText(fxLayer, arena, me.fig.headPos, r.combo);
       buzz(move === 'special' ? [40, 30, 60] : 25);
     }
@@ -324,10 +344,12 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   arena.onFrame = (dt) => {
     if (paused) return;
     if (fighting) clock += dt;
+    for (const f of F) f.ui.jump?.classList.toggle('cooling', fighting && !canJump(f.st, clock)); // dim while it recharges
     if (fighting && !two && clock >= cpuNext) {
       const cpu = F[1], kid = F[0];
       const d = cpuDecide(cpu.st, kid.st, { difficulty, now: clock, opponentAttacking: clock < kid.windUntil + 0.2 });
       if (d === 'block') doBlock(1);
+      else if (d === 'jump') doJump(1);
       else if (d !== 'wait') doAttack(1, d);
       cpuNext = clock + cpuThinkDelay(difficulty);
     }
@@ -337,7 +359,8 @@ export async function battleScreen(el, { ids, players = '1p', stage }) {
   };
 
   // test hook: lets automated tests drive the fight without timing flakiness
-  el.__battle = { F, match, doAttack, doBlock, canAct: (i) => fighting && canAct(F[i].st, clock), state: () => el.dataset.state,
+  el.__battle = { F, match, doAttack, doBlock, doJump, canAct: (i) => fighting && canAct(F[i].st, clock), canJump: (i) => fighting && canJump(F[i].st, clock), state: () => el.dataset.state,
+    unfreeze() { arena.timeScale = 1; },
     lying: () => F.map(f => Math.abs(f.fig.hold.lean) > 0.1 || !!f.fig.hold.limbs),
     // deterministic stepping for screenshots on slow machines: freeze real time, advance by hand
     freeze() { arena.timeScale = 0; },
