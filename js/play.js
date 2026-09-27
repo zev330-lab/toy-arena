@@ -272,6 +272,18 @@ export async function playScreen(el, { ids, stage }) {
     if (!f.chase || f.chase.distanceTo(t) > 0.05) f.chaseTo(t.x, t.z, { onStep: () => sfx.step() });
   }, 60);
 
+  // idle fidgets: now and then a toy waves, hops or looks around (never during an action or a drag)
+  const fidget = setInterval(() => {
+    if (busy || drag || !alive || Math.random() < 0.45) return;
+    const idle = figs.filter(f => !f.busy() && !f.chase);
+    if (!idle.length) return;
+    const f = idle[Math.floor(Math.random() * idle.length)];
+    const pick = Math.random();
+    if (pick < 0.4) f.wave(1.2);
+    else if (pick < 0.7) f.jump(0.35, { dur: 0.5 });
+    else f.play(1.4, (p, pose) => { f.turn(pose, 'neck', 0, Math.sin(p * Math.PI * 2) * 0.5, 0); f.turn(pose, 'chest', 0, Math.sin(p * Math.PI * 2) * 0.15, 0); });
+  }, 2600);
+
   el.__play = { run, figs, ACTIONS, screenOf: (i) => arena.project(figs[i].chestPos),
     freeze() { arena.timeScale = 0; },
     advance(sec, step = 1 / 60) { for (let t = 0; t < sec; t += step) { for (const f of figs) f.update(step); arena.fx.update(step); arena.onFrame?.(step, step); } } };
@@ -284,6 +296,7 @@ export async function playScreen(el, { ids, stage }) {
     alive = false;
     listen.abort();
     clearInterval(dragLoop);
+    clearInterval(fidget);
     stopMusic();
     for (const o of extras) removeExtra(o);
     arena.dispose();
