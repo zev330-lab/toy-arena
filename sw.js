@@ -34,6 +34,8 @@ const SHELL = [
   'js/core/battle-logic.js',
   'js/core/contour.js',
   'js/core/mask.js',
+  'js/core/puppet.js',
+  'js/core/rig.js',
   'js/core/stats.js',
   'js/screens/add.js',
   'js/screens/home.js',

@@ -43,8 +43,7 @@ export async function homeScreen(el) {
     muteBtn.querySelector('.emo').textContent = m ? '🔇' : '🔊';
   });
   const gear = btn({ emoji: '⚙️', cls: 'icon white small gear', aria: 'Grown-ups: hold for settings' });
-  holdToConfirm(gear, 900, () => openSettings());
-  gear.addEventListener('click', () => toast('👆 Grown-ups: press and hold'));
+  holdToConfirm(gear, 900, () => openSettings(), { hint: '👆 Grown-ups: press and hold' });
 
   const shelf = h('div', { class: 'shelf', 'aria-hidden': 'true' });
   const grid = h('div', { class: 'grid' },

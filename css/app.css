@@ -144,7 +144,8 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
 
 /* hold-to-open ring (parent gate) */
-.hold { position: relative; }
+.hold { position: relative; touch-action: none; }
+.hold.holding { transform: scale(0.96); }
 .hold::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 5px solid transparent;
   background: conic-gradient(var(--yellow) calc(var(--p, 0) * 1turn), transparent 0) border-box;
   -webkit-mask: linear-gradient(#000 0 0) padding-box exclude, linear-gradient(#000 0 0);

@@ -169,8 +169,8 @@ export async function toyScreen(el, { id }) {
       if (v) { await db.updateToy(toy.id, { hidden: true }); go('toys', {}, { replace: true }); }
       return;
     }
-    const v = await modal({ emoji: '🗑️', title: `Delete ${toy.name}?`, text: 'Grown-ups: press and hold Delete.',
-      actions: [{ emoji: '❌', label: 'Keep', cls: 'green', value: false }, { emoji: '🗑️', label: 'Delete', cls: 'red', value: true, hold: 1200 }] });
+    const v = await modal({ emoji: '🗑️', title: `Delete ${toy.name}?`, text: 'Grown-ups: press and HOLD the red button.',
+      actions: [{ emoji: '❌', label: 'Keep', cls: 'green', value: false }, { emoji: '🗑️', label: 'Hold', cls: 'red', value: true, hold: 1000, holdHint: '✋ Hold it down to delete' }] });
     if (v) { await db.deleteToy(toy.id); toast(`👋 Bye ${toy.name}!`); go('toys', {}, { replace: true }); }
   };
   el.append(

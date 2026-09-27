@@ -445,9 +445,25 @@ await step('11 settings: backup export → delete → restore round-trip', async
   await page.getByRole('button', { name: 'Delete' }).first().click({ force: true });
   await page.waitForSelector('.modal');
   await shot(page, '17-delete-confirm');
+  // real touches (CDP), like a finger on an iPad: a quick tap must NOT delete (it nudges "hold it"),
+  // a long press with a little finger wobble must delete
   const del = page.locator('.modal .btn.red');
-  await del.dispatchEvent('pointerdown');
-  await page.waitForTimeout(1500);
+  const bb = await del.boundingBox();
+  const cdp = await page.context().newCDPSession(page);
+  const touch = async (holdMs) => {
+    const pt = { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt] });
+    for (let t = 0; t < holdMs; t += 150) {
+      await page.waitForTimeout(150);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pt.x + (t % 300 ? 4 : -4), y: pt.y + 3 }] });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  await touch(150);
+  await page.waitForSelector('.toast:has-text("Hold it down")', { timeout: 3000 });
+  assert(await page.locator('.modal .btn.red').count() === 1, 'a quick tap closed the delete dialog');
+  facts.deleteQuickTap = 'nudged, kept';
+  await touch(1400);
   await screen(page, 'toys');
   let names = await page.locator('.toy-card .nm').allInnerTexts();
   assert(!names.includes('Blaze Tiger'), 'toy was not deleted');

@@ -56,7 +56,7 @@ export function modal({ emoji, title, text, body, actions = [], dismissable = tr
     };
     const btns = actions.map(a => {
       const b = btn({ emoji: a.emoji, label: a.label, cls: a.cls || 'white' });
-      if (a.hold) holdToConfirm(b, a.hold, () => close(a.value));
+      if (a.hold) holdToConfirm(b, a.hold, () => close(a.value), { hint: a.holdHint });
       else b.addEventListener('click', () => close(typeof a.value === 'function' ? a.value() : a.value));
       return b;
     });
@@ -101,22 +101,46 @@ export function busy(label, { emoji = '✂️' } = {}) {
   };
 }
 
-/** Press-and-hold to trigger (parent gate / destructive actions). Shows a filling ring. */
-export function holdToConfirm(el, ms, onDone) {
+/**
+ * Press-and-hold to trigger (parent gate / destructive actions). Shows a filling ring.
+ * Touches are handled with non-passive touchstart/touchend: on iPhone/iPad a pointer-only hold is
+ * cancelled (pointercancel) as soon as Safari claims the touch for a pan or long-press, so the
+ * hold never finished. A quick tap now shows a "keep holding" nudge instead of doing nothing.
+ */
+export function holdToConfirm(el, ms, onDone, { hint = '✋ Keep holding!' } = {}) {
   el.classList.add('hold');
-  let raf = 0, start = 0;
-  const reset = () => { cancelAnimationFrame(raf); el.style.setProperty('--p', 0); start = 0; };
+  let raf = 0, start = 0, active = false;
+  const reset = () => { active = false; cancelAnimationFrame(raf); el.style.setProperty('--p', 0); start = 0; el.classList.remove('holding'); };
   const tick = (t) => {
+    if (!active) return;
     if (!start) start = t;
     const p = Math.min(1, (t - start) / ms);
     el.style.setProperty('--p', p);
     if (p >= 1) { reset(); onDone(); return; }
     raf = requestAnimationFrame(tick);
   };
-  el.addEventListener('pointerdown', (e) => { e.preventDefault(); reset(); raf = requestAnimationFrame(tick); });
-  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, reset);
+  const begin = (e) => {
+    e.preventDefault();
+    if (active) return;
+    reset();
+    active = true;
+    el.classList.add('holding');
+    raf = requestAnimationFrame(tick);
+  };
+  const release = () => {
+    if (!active) return; // already fired (or never started)
+    reset();
+    el.animate?.([{ transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'none' }], { duration: 220 });
+    if (hint) toast(hint);
+  };
+  el.addEventListener('touchstart', begin, { passive: false });
+  el.addEventListener('touchend', release);
+  el.addEventListener('touchcancel', reset);
+  el.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') begin(e); });
+  el.addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') release(); });
+  for (const ev of ['pointerleave', 'pointercancel']) el.addEventListener(ev, (e) => { if (e.pointerType !== 'touch') reset(); });
   el.addEventListener('contextmenu', (e) => e.preventDefault());
-  el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') onDone(); });
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDone(); } });
 }
 
 export function confetti(container, n = 70) {
