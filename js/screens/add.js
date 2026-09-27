@@ -4,7 +4,7 @@
 import { h, btn, topbar, busy, toast, modal, sleep, confetti } from '../ui.js';
 import { go, back as navBack, possessive, ownerName } from '../app.js';
 import * as db from '../db.js';
-import { pickPhoto, fileToCanvas, canvasToBlob } from '../capture.js';
+import { pickPhoto, pickPhotos, fileToCanvas, canvasToBlob } from '../capture.js';
 import { autoCutout, reselect, loadSegmenter, aiDisabled } from '../segment.js';
 import { makeCutout, fitBack } from '../cutout.js';
 import { POWERS, deriveStats, randomName } from '../core/stats.js';
@@ -39,8 +39,61 @@ export async function addScreen(el, params = {}) {
         h('p', { class: 'hint', style: { fontSize: '24px' } }, isBack ? 'Turn your toy around!' : 'Put your toy on a table!'),
         btn({ emoji: '📷', label: 'Take Photo', cls: 'red big pulse', aria: 'Take a photo with the camera', onClick: () => grab(side, true) }),
         btn({ emoji: '🖼️', label: 'Photos', cls: 'white', aria: 'Choose from photos', onClick: () => grab(side, false) }),
+        isBack || retake ? null : btn({ emoji: '📚', label: 'Many Photos', cls: 'white small', aria: 'Add many toys from photos', onClick: () => bulkAdd() }),
       ),
     );
+  }
+
+  /** Alpha channel of a cutout canvas (for the auto-skeleton). */
+  function alphaOf(canvas) {
+    const px = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height).data;
+    const a = new Uint8Array(canvas.width * canvas.height);
+    for (let i = 0; i < a.length; i++) a[i] = px[i * 4 + 3];
+    return a;
+  }
+
+  // ---------- many photos at once: every photo becomes a toy (auto cutout, fun name, random power) ----------
+  async function bulkAdd() {
+    const files = await pickPhotos();
+    if (!files.length || !alive) return;
+    const b = busy(`Making toy 1 of ${files.length}…`, { emoji: '🪄' });
+    const made = [];
+    try {
+      const taken = new Set((await db.allToys()).map(t => t.name));
+      const { renderThumb } = await import('../engine.js');
+      for (const [i, file] of files.entries()) {
+        if (!alive) break;
+        b.set(`Making toy ${i + 1} of ${files.length}…`, i / files.length);
+        try {
+          const photo = await fileToCanvas(file, 1024);
+          const session = await autoCutout(photo);
+          const cut = makeCutout(session.photo, session.mask, session.w, session.h);
+          let name = randomName();
+          for (let k = 0; k < 12 && taken.has(name); k++) name = randomName(Math.random, name);
+          taken.add(name);
+          const toy = {
+            id: db.newId(), name, power: POWERS[Math.floor(Math.random() * POWERS.length)].id,
+            stats: deriveStats(cut.features, cut.hash), createdAt: Date.now(), wins: 0, losses: 0, xp: 0, builtin: false, hidden: false,
+            width: cut.width, height: cut.height, contour: cut.contour, outline: cut.outline, edgeColor: cut.edgeColor,
+            frontBlob: await canvasToBlob(cut.canvas), backBlob: null, rig: autoRig(alphaOf(cut.canvas), cut.width, cut.height), thumbBlob: null,
+          };
+          toy.thumbBlob = await renderThumb(toy);
+          toy.thumbV = THUMB_V;
+          await db.putToy(toy);
+          made.push(toy);
+        } catch (e) { console.warn('[toy-arena] bulk photo skipped', e); }
+      }
+    } finally { b.close(); }
+    db.requestPersist();
+    if (!alive) return;
+    if (!made.length) {
+      await modal({ emoji: '🙈', title: 'Oops!', text: 'Those photos didn’t work. Try other ones!', actions: [{ emoji: '👍', label: 'OK', cls: 'yellow', value: true }] });
+      return;
+    }
+    sfx.fanfare();
+    confetti(document.getElementById('app'), 80);
+    toast(`🎉 ${made.length} new toy${made.length === 1 ? '' : 's'}!`);
+    go('toys', {}, { reset: true });
   }
 
   async function grab(side, capture) {
@@ -292,11 +345,8 @@ export async function addScreen(el, params = {}) {
     const frontBlob = await canvasToBlob(f.canvas);
     const backBlob = draft.back ? await canvasToBlob(fitBack(draft.back, f)) : null;
     // skeleton for the jointed 3D puppet (a retake gets a fresh one for the new photo)
-    const px = f.canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, f.width, f.height).data;
-    const alpha = new Uint8Array(f.width * f.height);
-    for (let i = 0; i < alpha.length; i++) alpha[i] = px[i * 4 + 3];
     let rig = null;
-    try { rig = autoRig(alpha, f.width, f.height); } catch (e) { console.warn('[toy-arena] rig', e); }
+    try { rig = autoRig(alphaOf(f.canvas), f.width, f.height); } catch (e) { console.warn('[toy-arena] rig', e); }
     return { width: f.width, height: f.height, contour: f.contour, outline: f.outline, edgeColor: f.edgeColor, frontBlob, backBlob, rig };
   }
 

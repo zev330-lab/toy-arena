@@ -18,6 +18,24 @@ export function pickPhoto({ capture = true } = {}) {
   });
 }
 
+/** Photo library picker with multi-select (grown-ups re-adding a whole shelf of toys at once). */
+export function pickPhotos() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    input.dataset.role = 'library-multi-input';
+    let settled = false;
+    const finish = (files) => { if (settled) return; settled = true; input.remove(); resolve(files); };
+    input.addEventListener('change', () => finish([...(input.files || [])]));
+    input.addEventListener('cancel', () => finish([]));
+    document.body.append(input);
+    input.click();
+  });
+}
+
 /**
  * Decode an image File/Blob into a canvas, EXIF orientation applied, longest side ≤ maxSide.
  * <img> decoding honours EXIF orientation in Safari ≥13.1 / Chrome ≥81 (image-orientation: from-image).

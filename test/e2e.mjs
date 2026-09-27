@@ -233,6 +233,24 @@ await step('04 smart cutout on a busy, cluttered background', async () => {
   await screen(page, 'home');
 });
 
+await step('04b many photos at once: every photo becomes a toy', async () => {
+  await page.goto(`${BASE}?nosw&mute=1`);
+  await ready(page);
+  const before = await page.evaluate(async () => (await window.__toyArena.db.allToys()).filter(t => !t.builtin).length);
+  await tapText(page, 'Add a Toy');
+  await screen(page, 'add');
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser', { timeout: 10000 }), tapText(page, 'Add many toys from photos')]);
+  assert(chooser.isMultiple(), 'picker is not multi-select');
+  await chooser.setFiles([path.join(FIX, 'figure_front.jpg'), path.join(FIX, 'figure_busy.jpg')]);
+  await screen(page, 'toys', 180000);
+  await page.waitForTimeout(800);
+  const after = await page.evaluate(async () => (await window.__toyArena.db.allToys()).filter(t => !t.builtin));
+  facts.bulk = { before, after: after.length, names: after.map(t => t.name), rigs: after.map(t => !!t.rig) };
+  assert(after.length === before + 2, `bulk add made ${after.length - before} toys`);
+  assert(after.every(t => t.thumbBlob && t.rig), 'bulk toys missing card or skeleton');
+  await shot(page, '05b-many-photos-added');
+});
+
 for (const [i, photo] of REAL_PHOTOS.entries()) {
   await step(`05 real toy photo ${path.basename(photo)}`, async () => {
     await page.goto(`${BASE}?nosw&mute=1`);
